@@ -1,0 +1,25 @@
+project_id = "ahsullbcdrekmribkcbm"
+
+[functions.sudoku-save-game]
+verify_jwt = false
+
+[functions.sudoku-validate-game]
+verify_jwt = false
+
+[functions.sudoku-grant-xp]
+verify_jwt = false
+
+[functions.sudoku-hint]
+verify_jwt = false
+
+[functions.sudoku-daily-cron]
+verify_jwt = false
+
+[functions.sudoku-daily-submit]
+verify_jwt = false
+
+[functions.sudoku-leaderboard]
+verify_jwt = false
+
+[functions.sudoku-health-check]
+verify_jwt = false
