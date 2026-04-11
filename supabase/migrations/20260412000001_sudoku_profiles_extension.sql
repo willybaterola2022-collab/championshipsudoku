@@ -24,10 +24,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Chess-protected fields (existing)
+  -- Chess-protected fields (from live chess trigger — DO NOT REMOVE ANY)
   IF NEW.elo_rating IS DISTINCT FROM OLD.elo_rating OR
      NEW.xp IS DISTINCT FROM OLD.xp OR
      NEW.level IS DISTINCT FROM OLD.level OR
+     NEW.games_won IS DISTINCT FROM OLD.games_won OR
      NEW.games_played IS DISTINCT FROM OLD.games_played OR
      NEW.current_streak IS DISTINCT FROM OLD.current_streak OR
      NEW.best_streak IS DISTINCT FROM OLD.best_streak THEN

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePuzzle } from "@/lib/sudoku/generator";
 import {
@@ -13,10 +14,11 @@ import {
   type HistoryEntry,
 } from "@/lib/sudoku/types";
 import { checkCompletion, updateAllErrors } from "@/lib/sudoku/validator";
+import { showSubmitResult } from "@/lib/submitFeedback";
 import { sudokuService } from "@/lib/sudokuService";
 import type { WinPayload } from "@/hooks/usePlayerProgress";
 
-const STORAGE_KEY = "sudoku-game-state";
+const DEFAULT_PERSISTENCE_KEY = "sudoku-game-state";
 const MAX_HINTS = 3;
 const MAX_MISTAKES = 3;
 
@@ -55,9 +57,22 @@ function deserialize(raw: string): PersistedState | null {
 
 export interface UseSudokuGameOptions {
   onWin?: (payload: WinPayload) => void;
+  /** Default `sudoku-game-state`. Use a different key for daily route so it does not overwrite classic progress. */
+  persistenceKey?: string;
+  /** When set, initial load uses this puzzle instead of generating a random one. */
+  seeded?: {
+    puzzle: number[][];
+    solution: number[][];
+    difficulty: Difficulty;
+  };
+  /** When set, completed games call `sudoku-daily-submit` via service flags. */
+  dailyMeta?: { challengeId: string; puzzleId: string | null };
 }
 
 export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
+  const { user, refreshProfile } = useAuth();
+  const storageKey = opts.persistenceKey ?? DEFAULT_PERSISTENCE_KEY;
+  const dailyMeta = opts.dailyMeta;
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [solution, setSolution] = useState<number[][]>(() =>
     Array.from({ length: 9 }, () => Array(9).fill(0))
@@ -92,7 +107,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       history,
     };
     try {
-      localStorage.setItem(STORAGE_KEY, serialize(state));
+      localStorage.setItem(storageKey, serialize(state));
     } catch {
       /* ignore */
     }
@@ -107,6 +122,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     mistakes,
     selectedCell,
     solution,
+    storageKey,
     timerSeconds,
   ]);
 
@@ -128,16 +144,14 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     };
   }, [isCompleted, isPaused]);
 
-  const newGame = useCallback((d: Difficulty = difficulty) => {
-    setGenerating(true);
-    setDifficulty(d);
+  const applySeed = useCallback((seed: { puzzle: number[][]; solution: number[][]; difficulty: Difficulty }) => {
     queueMicrotask(() => {
-      const gen = generatePuzzle(d);
-      const givens = gen.puzzle.map((row) => row.map((v) => (v !== 0 ? 1 : 0)));
-      const b = numbersToBoard(gen.puzzle, givens);
+      const givens = seed.puzzle.map((row) => row.map((v) => (v !== 0 ? 1 : 0)));
+      const b = numbersToBoard(seed.puzzle, givens);
       const withErrors = updateAllErrors(b);
-      setSolution(gen.solution);
+      setSolution(seed.solution);
       setBoard(withErrors);
+      setDifficulty(seed.difficulty);
       setSelectedCell(null);
       setIsNotesMode(false);
       setTimerSeconds(0);
@@ -148,11 +162,40 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       setHistory([]);
       setGenerating(false);
     });
-  }, [difficulty]);
+  }, []);
+
+  const newGame = useCallback(
+    (d: Difficulty = difficulty) => {
+      if (dailyMeta && opts.seeded) {
+        applySeed(opts.seeded);
+        return;
+      }
+      setGenerating(true);
+      setDifficulty(d);
+      queueMicrotask(() => {
+        const gen = generatePuzzle(d);
+        const givens = gen.puzzle.map((row) => row.map((v) => (v !== 0 ? 1 : 0)));
+        const b = numbersToBoard(gen.puzzle, givens);
+        const withErrors = updateAllErrors(b);
+        setSolution(gen.solution);
+        setBoard(withErrors);
+        setSelectedCell(null);
+        setIsNotesMode(false);
+        setTimerSeconds(0);
+        setIsPaused(false);
+        setIsCompleted(false);
+        setMistakes(0);
+        setHintsUsed(0);
+        setHistory([]);
+        setGenerating(false);
+      });
+    },
+    [applySeed, dailyMeta, difficulty, opts.seeded]
+  );
 
   const loadGame = useCallback(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (!raw) return false;
       const p = deserialize(raw);
       if (!p) return false;
@@ -171,27 +214,31 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     } catch {
       return false;
     }
-  }, []);
+  }, [storageKey]);
 
   const hasSavedGame = useCallback(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       return Boolean(raw && deserialize(raw));
     } catch {
       return false;
     }
-  }, []);
+  }, [storageKey]);
 
   const bootstrapped = useRef(false);
   useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
+    if (opts.seeded) {
+      applySeed(opts.seeded);
+      return;
+    }
     if (!hasSavedGame()) {
       newGame("medium");
     } else {
       loadGame();
     }
-  }, [hasSavedGame, loadGame, newGame]);
+  }, [applySeed, hasSavedGame, loadGame, newGame, opts.seeded]);
 
   const placeNumber = useCallback(
     (n: number) => {
@@ -266,20 +313,39 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
           errors: nextMistakes,
           hintsUsed,
         };
-        onWinRef.current?.(payload);
-        void sudokuService.submitPuzzleResult({
-          puzzleId: null,
-          difficulty,
-          variant: "classic",
-          timeMs: timerSeconds * 1000,
-          errors: nextMistakes,
-          hintsUsed,
-          boardState: boardToNumbers(updated),
-          solution,
-        });
+        void (async () => {
+          if (!user) onWinRef.current?.(payload);
+          const result = await sudokuService.submitPuzzleResult({
+            puzzleId: dailyMeta?.puzzleId ?? null,
+            difficulty,
+            variant: "classic",
+            timeMs: timerSeconds * 1000,
+            errors: nextMistakes,
+            hintsUsed,
+            boardState: boardToNumbers(updated),
+            solution,
+            isDaily: Boolean(dailyMeta),
+            challengeId: dailyMeta?.challengeId ?? null,
+          });
+          await showSubmitResult(result, refreshProfile);
+        })();
       }
     },
-    [board, difficulty, hintsUsed, isCompleted, isNotesMode, isPaused, mistakes, selectedCell, solution, timerSeconds]
+    [
+      board,
+      dailyMeta,
+      difficulty,
+      hintsUsed,
+      isCompleted,
+      isNotesMode,
+      isPaused,
+      mistakes,
+      refreshProfile,
+      selectedCell,
+      solution,
+      timerSeconds,
+      user,
+    ]
   );
 
   const eraseCell = useCallback(() => {
@@ -384,17 +450,22 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
             errors: mistakes,
             hintsUsed: hintsUsed + 1,
           };
-          onWinRef.current?.(payload);
-          void sudokuService.submitPuzzleResult({
-            puzzleId: null,
-            difficulty,
-            variant: "classic",
-            timeMs: timerSeconds * 1000,
-            errors: mistakes,
-            hintsUsed: hintsUsed + 1,
-            boardState: boardToNumbers(updated),
-            solution,
-          });
+          void (async () => {
+            if (!user) onWinRef.current?.(payload);
+            const result = await sudokuService.submitPuzzleResult({
+              puzzleId: dailyMeta?.puzzleId ?? null,
+              difficulty,
+              variant: "classic",
+              timeMs: timerSeconds * 1000,
+              errors: mistakes,
+              hintsUsed: hintsUsed + 1,
+              boardState: boardToNumbers(updated),
+              solution,
+              isDaily: Boolean(dailyMeta),
+              challengeId: dailyMeta?.challengeId ?? null,
+            });
+            await showSubmitResult(result, refreshProfile);
+          })();
         }
       } else {
         const next = cloneBoard(board);
@@ -416,23 +487,29 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         toast.message("Pista aplicada");
         if (checkCompletion(updated)) {
           setIsCompleted(true);
-          onWinRef.current?.({
+          const payload: WinPayload = {
             difficulty,
             variant: "classic",
             timeMs: timerSeconds * 1000,
             errors: mistakes,
             hintsUsed: hintsUsed + 1,
-          });
-          void sudokuService.submitPuzzleResult({
-            puzzleId: null,
-            difficulty,
-            variant: "classic",
-            timeMs: timerSeconds * 1000,
-            errors: mistakes,
-            hintsUsed: hintsUsed + 1,
-            boardState: boardToNumbers(updated),
-            solution,
-          });
+          };
+          void (async () => {
+            if (!user) onWinRef.current?.(payload);
+            const result = await sudokuService.submitPuzzleResult({
+              puzzleId: dailyMeta?.puzzleId ?? null,
+              difficulty,
+              variant: "classic",
+              timeMs: timerSeconds * 1000,
+              errors: mistakes,
+              hintsUsed: hintsUsed + 1,
+              boardState: boardToNumbers(updated),
+              solution,
+              isDaily: Boolean(dailyMeta),
+              challengeId: dailyMeta?.challengeId ?? null,
+            });
+            await showSubmitResult(result, refreshProfile);
+          })();
         }
       }
     } finally {
@@ -440,15 +517,18 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     }
   }, [
     board,
+    dailyMeta,
     difficulty,
     hintLoading,
     hintsUsed,
     isCompleted,
     isPaused,
     mistakes,
+    refreshProfile,
     selectedCell,
     solution,
     timerSeconds,
+    user,
   ]);
 
   const filledCount = board.flat().filter((c) => c.value != null).length;

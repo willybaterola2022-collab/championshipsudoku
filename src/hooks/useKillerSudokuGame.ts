@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { generateKillerPuzzle } from "@/lib/sudoku/killer-generator";
 import type { Cage } from "@/lib/sudoku/killer-types";
 import {
@@ -13,6 +14,7 @@ import {
   type HistoryEntry,
 } from "@/lib/sudoku/types";
 import { updateAllErrors } from "@/lib/sudoku/validator";
+import { showSubmitResult } from "@/lib/submitFeedback";
 import { sudokuService } from "@/lib/sudokuService";
 import type { WinPayload } from "@/hooks/usePlayerProgress";
 
@@ -106,6 +108,7 @@ export interface UseKillerOptions {
 }
 
 export function useKillerSudokuGame(opts: UseKillerOptions = {}) {
+  const { user, refreshProfile } = useAuth();
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [cages, setCages] = useState<Cage[]>([]);
   const [solution, setSolution] = useState<number[][]>(() =>
@@ -322,20 +325,37 @@ export function useKillerSudokuGame(opts: UseKillerOptions = {}) {
           errors: nextMistakes,
           hintsUsed: 0,
         };
-        onWinRef.current?.(payload);
-        void sudokuService.submitPuzzleResult({
-          puzzleId: null,
-          difficulty,
-          variant: "killer",
-          timeMs: timerSeconds * 1000,
-          errors: nextMistakes,
-          hintsUsed: 0,
-          boardState: boardToNumbers(updated),
-          solution,
-        });
+        void (async () => {
+          if (!user) onWinRef.current?.(payload);
+          const result = await sudokuService.submitPuzzleResult({
+            puzzleId: null,
+            difficulty,
+            variant: "killer",
+            timeMs: timerSeconds * 1000,
+            errors: nextMistakes,
+            hintsUsed: 0,
+            boardState: boardToNumbers(updated),
+            solution,
+          });
+          await showSubmitResult(result, refreshProfile);
+        })();
       }
     },
-    [board, cages, difficulty, isCompleted, isNotesMode, isPaused, mistakes, selectedCell, solution, timerSeconds, valuesFromBoard]
+    [
+      board,
+      cages,
+      difficulty,
+      isCompleted,
+      isNotesMode,
+      isPaused,
+      mistakes,
+      refreshProfile,
+      selectedCell,
+      solution,
+      timerSeconds,
+      user,
+      valuesFromBoard,
+    ]
   );
 
   const eraseCell = useCallback(() => {
