@@ -149,3 +149,9 @@
     max-width: min(55vh, 480px);
   }
 }
+
+/* Variante diagonal 9x9 */
+.sudoku-cell-diagonal {
+  background: hsla(43, 90%, 55%, 0.08);
+  border-color: hsla(43, 90%, 55%, 0.15);
+}

@@ -7,6 +7,7 @@ import { useLoginSync } from "@/hooks/useLoginSync";
 const Landing = lazy(() => import("@/pages/Landing"));
 const Play = lazy(() => import("@/pages/Play"));
 const PlayKiller = lazy(() => import("@/pages/PlayKiller"));
+const PlayMini = lazy(() => import("@/pages/PlayMini"));
 const Daily = lazy(() => import("@/pages/Daily"));
 const Speed = lazy(() => import("@/pages/Speed"));
 const Login = lazy(() => import("@/pages/Login"));
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/" element={<Landing />} />
         <Route path="/play" element={<Play />} />
         <Route path="/play/killer" element={<PlayKiller />} />
+        <Route path="/play/mini" element={<PlayMini />} />
         <Route path="/daily" element={<Daily />} />
         <Route path="/speed" element={<Speed />} />
         <Route path="/login" element={<Login />} />

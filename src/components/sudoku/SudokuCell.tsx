@@ -1,3 +1,4 @@
+import { isOnDiagonal } from "@/lib/sudoku/diagonalValidator";
 import { cn } from "@/lib/utils";
 import type { Board } from "@/lib/sudoku/types";
 
@@ -8,6 +9,9 @@ interface SudokuCellProps {
   selected: { row: number; col: number } | null;
   onSelect: (row: number, col: number) => void;
   staggerDelayMs?: number;
+  /** Resalta diagonales principales (variante diagonal). */
+  diagonal?: boolean;
+  gridSize?: 6 | 9;
 }
 
 export function SudokuCell({
@@ -17,8 +21,11 @@ export function SudokuCell({
   selected,
   onSelect,
   staggerDelayMs = 0,
+  diagonal = false,
+  gridSize = 9,
 }: SudokuCellProps) {
   const cell = board[row][col];
+  const onDiag = diagonal && isOnDiagonal(row, col);
   const isSelected = selected?.row === row && selected?.col === col;
 
   let highlight = false;
@@ -27,15 +34,19 @@ export function SudokuCell({
     const sv = board[selected.row][selected.col].value;
     if (sv != null && cell.value === sv) sameNumber = true;
     if (selected.row === row || selected.col === col) highlight = true;
-    const br = Math.floor(row / 3);
-    const bc = Math.floor(col / 3);
-    const sbr = Math.floor(selected.row / 3);
-    const sbc = Math.floor(selected.col / 3);
+    const br = gridSize === 6 ? Math.floor(row / 2) : Math.floor(row / 3);
+    const bc = gridSize === 6 ? Math.floor(col / 3) : Math.floor(col / 3);
+    const sbr = gridSize === 6 ? Math.floor(selected.row / 2) : Math.floor(selected.row / 3);
+    const sbc = gridSize === 6 ? Math.floor(selected.col / 3) : Math.floor(selected.col / 3);
     if (br === sbr && bc === sbc) highlight = true;
   }
 
-  const thickRight = (col + 1) % 3 === 0 && col < 8;
-  const thickBottom = (row + 1) % 3 === 0 && row < 8;
+  const thickRight =
+    gridSize === 6
+      ? (col + 1) % 3 === 0 && col < 5
+      : (col + 1) % 3 === 0 && col < 8;
+  const thickBottom =
+    gridSize === 6 ? (row + 1) % 2 === 0 && row < 5 : (row + 1) % 3 === 0 && row < 8;
 
   return (
     <button
@@ -57,6 +68,7 @@ export function SudokuCell({
         isSelected && "z-[1] ring-2 ring-[hsl(var(--sudoku-cell-selected))] ring-offset-0",
         !isSelected && sameNumber && "bg-[hsla(var(--sudoku-cell-same-number)/0.5)]",
         !isSelected && highlight && !sameNumber && "bg-[hsla(var(--sudoku-cell-highlight)/0.6)]",
+        onDiag && "sudoku-cell-diagonal",
         "active:scale-[0.97]"
       )}
       onClick={() => onSelect(row, col)}
@@ -64,8 +76,13 @@ export function SudokuCell({
       {cell.value != null ? (
         <span>{cell.value}</span>
       ) : (
-        <div className="sudoku-notes grid h-full w-full grid-cols-3 grid-rows-3 gap-px p-0.5 text-[9px] font-normal leading-none text-muted-foreground sm:text-[10px]">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+        <div
+          className={cn(
+            "sudoku-notes grid h-full w-full gap-px p-0.5 text-[9px] font-normal leading-none text-muted-foreground sm:text-[10px]",
+            gridSize === 6 ? "grid-cols-3 grid-rows-2" : "grid-cols-3 grid-rows-3"
+          )}
+        >
+          {(gridSize === 6 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7, 8, 9]).map((n) => (
             <span key={n} className="flex items-center justify-center">
               {cell.notes[n] ? n : ""}
             </span>

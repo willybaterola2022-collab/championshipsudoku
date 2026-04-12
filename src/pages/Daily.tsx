@@ -13,6 +13,7 @@ import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { Timer } from "@/components/sudoku/Timer";
 import { FEATURES } from "@/config";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeaturedPuzzles } from "@/hooks/useFeaturedPuzzles";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
@@ -35,6 +36,10 @@ const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Vie
 function DailyInner({ row }: { row: DailyChallengeRow }) {
   const { user } = useAuth();
   const { recordWin } = usePlayerProgress();
+  const { data: featuredList } = useFeaturedPuzzles(24);
+  const isFeaturedPuzzle = Boolean(
+    featuredList?.some((p) => p.id === row.sudoku_puzzles.id)
+  );
   const seeded = useMemo(() => {
     const puzzle = JSON.parse(row.sudoku_puzzles.puzzle) as number[][];
     const solution = JSON.parse(row.sudoku_puzzles.solution) as number[][];
@@ -124,6 +129,11 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {isFeaturedPuzzle ? (
+              <span className="rounded-full border border-amber-500/60 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-200">
+                Puzzle destacado
+              </span>
+            ) : null}
             <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               +{row.bonus_xp} XP bonus
             </span>

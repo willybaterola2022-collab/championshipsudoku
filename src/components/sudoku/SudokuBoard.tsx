@@ -9,6 +9,9 @@ interface SudokuBoardProps {
   sizeClassName?: string;
   animateStagger?: boolean;
   className?: string;
+  diagonal?: boolean;
+  /** Default 9. Use 6 for Mini Sudoku (2×3 cajas). */
+  gridSize?: 6 | 9;
 }
 
 export function SudokuBoard({
@@ -18,7 +21,11 @@ export function SudokuBoard({
   sizeClassName = "w-[min(95vw,520px)] max-w-full",
   animateStagger = false,
   className,
+  diagonal = false,
+  gridSize = 9,
 }: SudokuBoardProps) {
+  const n = gridSize;
+  const cells = n * n;
   return (
     <div
       className={cn(
@@ -27,10 +34,15 @@ export function SudokuBoard({
         className
       )}
     >
-      <div className="grid aspect-square grid-cols-9 grid-rows-9 overflow-hidden rounded-md">
-        {Array.from({ length: 81 }, (_, i) => {
-          const row = Math.floor(i / 9);
-          const col = i % 9;
+      <div
+        className={cn(
+          "grid aspect-square overflow-hidden rounded-md",
+          n === 6 ? "grid-cols-6 grid-rows-6" : "grid-cols-9 grid-rows-9"
+        )}
+      >
+        {Array.from({ length: cells }, (_, i) => {
+          const row = Math.floor(i / n);
+          const col = i % n;
           return (
             <SudokuCell
               key={`${row}-${col}`}
@@ -40,6 +52,8 @@ export function SudokuBoard({
               selected={selectedCell}
               onSelect={onSelectCell}
               staggerDelayMs={animateStagger ? row * 20 + col * 3 : 0}
+              diagonal={diagonal}
+              gridSize={gridSize}
             />
           );
         })}

@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, LogOut, User } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { ActivityCalendar } from "@/components/sudoku/ActivityCalendar";
 import { Navbar } from "@/components/Navbar";
+import { ProfileSessionChart } from "@/components/sudoku/ProfileSessionChart";
+import { UnlockProgressSection } from "@/components/sudoku/UnlockProgressSection";
 import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
 import { useAuth } from "@/contexts/AuthContext";
+import { getHintLevelStatsLastMonth } from "@/lib/hintTelemetry";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { ACHIEVEMENT_KEYS, ACHIEVEMENT_LABELS } from "@/lib/achievementLabels";
@@ -80,6 +84,8 @@ export default function Profile() {
   const allAchievementsLocked =
     achievementsFetched && unlockedKeys !== undefined && unlockedKeys.size === 0;
 
+  const hintMonth = useMemo(() => getHintLevelStatsLastMonth(), []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
@@ -147,6 +153,27 @@ export default function Profile() {
         </div>
 
         <XPBar progress={progress} rank={rank} className="max-w-md" />
+
+        {hintMonth.total > 0 && (
+          <div className="glass rounded-xl border border-border p-4 text-sm">
+            <p className="font-medium text-foreground">Pistas (últimos ~30 días, este dispositivo)</p>
+            <p className="mt-1 text-muted-foreground">
+              Usaste {hintMonth.total} pista(s):{" "}
+              {Math.round((hintMonth.n1 / hintMonth.total) * 100)}% nivel 1,{" "}
+              {Math.round((hintMonth.n2 / hintMonth.total) * 100)}% nivel 2,{" "}
+              {Math.round((hintMonth.n3 / hintMonth.total) * 100)}% nivel 3.
+            </p>
+          </div>
+        )}
+
+        <ActivityCalendar userId={user.id} className="glass rounded-xl border border-border p-4" />
+
+        <ProfileSessionChart userId={user.id} className="glass rounded-xl border border-border p-4" />
+
+        <div className="glass rounded-xl border border-border p-4">
+          <h2 className="mb-3 font-serif text-xl text-primary">Progresión y desbloqueos</h2>
+          <UnlockProgressSection />
+        </div>
 
         <WeeklyMissions />
 
@@ -226,11 +253,6 @@ export default function Profile() {
             })}
           </div>
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          Datos personales: podés solicitar copia o aclaraciones sobre el tratamiento escribiendo desde el email
-          con el que te registraste al soporte del producto (Casual Games).
-        </p>
 
         <p className="text-xs text-muted-foreground">
           Datos personales: podés solicitar copia o aclaraciones sobre el tratamiento escribiendo desde el email

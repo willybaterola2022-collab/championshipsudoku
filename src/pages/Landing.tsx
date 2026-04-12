@@ -2,6 +2,7 @@ import { Grid3x3, Maximize2, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useFeaturedPuzzles } from "@/hooks/useFeaturedPuzzles";
 import { GameOverLost } from "@/components/GameOverLost";
 import { HowToPlayDialog } from "@/components/HowToPlayDialog";
 import { Navbar } from "@/components/Navbar";
@@ -21,6 +22,7 @@ import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
+import { DIFFICULTY_CONFIG, type Difficulty } from "@/lib/sudoku/types";
 import { cn } from "@/lib/utils";
 
 const HOWTO_KEY = "sudoku-first-visit-help-v1";
@@ -37,6 +39,7 @@ export default function Landing() {
   });
   const [theme, setTheme] = useState<BoardThemeId>(() => readBoardTheme());
   const [helpOpen, setHelpOpen] = useState(false);
+  const { data: featuredRows, isLoading: featuredLoading } = useFeaturedPuzzles(5);
 
   useEffect(() => {
     try {
@@ -145,6 +148,41 @@ export default function Landing() {
         </div>
 
         <BoardThemeSelector value={theme} onChange={onThemeChange} />
+
+        {featuredLoading ? (
+          <div className="h-24 animate-pulse rounded-lg bg-muted/40" data-placeholder />
+        ) : featuredRows && featuredRows.length > 0 ? (
+          <section className="space-y-3" aria-labelledby="featured-heading">
+            <h2 id="featured-heading" className="font-serif text-xl text-primary">
+              Puzzles destacados
+            </h2>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {featuredRows.map((p, i) => {
+                const diff = (p.difficulty as Difficulty) ?? "medium";
+                return (
+                  <article
+                    key={p.id}
+                    className="glass min-w-[220px] shrink-0 rounded-xl border border-border p-4"
+                  >
+                    <p className="text-xs font-semibold uppercase text-primary">Destacado #{i + 1}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{DIFFICULTY_CONFIG[diff].label}</p>
+                    <p className="mt-2 line-clamp-2 text-sm text-foreground">
+                      {(p.techniques_required?.length ?? 0) > 0
+                        ? "Requiere técnicas del catálogo clasificadas."
+                        : "Selección del equipo."}
+                    </p>
+                    <Link
+                      to={`/play?loadFeatured=${p.id}`}
+                      className="mt-3 inline-block rounded-full border border-primary px-3 py-1.5 text-sm text-primary hover:bg-primary/10"
+                    >
+                      Jugar
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <div className="sudoku-play-layout flex flex-col items-stretch gap-4 lg:flex-col">
           <div className="sudoku-board-wrap relative mx-auto w-full max-w-[520px]">

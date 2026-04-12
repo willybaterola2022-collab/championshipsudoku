@@ -3,43 +3,45 @@ import { toast } from "sonner";
 import { FEATURES } from "@/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { generatePuzzle } from "@/lib/sudoku/generator";
+import { generate6x6 } from "@/lib/sudoku/generator6x6";
+import { logHintUsage } from "@/lib/hintTelemetry";
+import { autoFillNotesMini6 } from "@/lib/sudoku/autoNotesMini6";
+import { gameSounds } from "@/lib/gameSounds";
+import { vibrateShort } from "@/lib/haptics";
+import { isBoxFilledMini6, isColFilledMini6, isRowFilledMini6 } from "@/lib/sudoku/mini6RegionFilled";
+import { checkCompletionMini6, updateAllErrorsMini6 } from "@/lib/sudoku/mini6Validator";
+import { showSubmitResult } from "@/lib/submitFeedback";
+import { sudokuService } from "@/lib/sudokuService";
 import {
   boardToNumbers,
   cloneBoard,
-  createEmptyBoard,
+  createEmptyCell,
   numbersToBoard,
   type Board,
   type CellNotes,
   type Difficulty,
   type HistoryEntry,
 } from "@/lib/sudoku/types";
-import { gameSounds } from "@/lib/gameSounds";
-import { vibrateShort } from "@/lib/haptics";
-import { isBoxFilled, isColFilled, isRowFilled } from "@/lib/sudoku/regionFilled";
-import { updateAllErrorsDiagonal } from "@/lib/sudoku/diagonalValidator";
-import { logHintUsage } from "@/lib/hintTelemetry";
-import { solvePuzzleLogically, type SolveResult } from "@/lib/sudoku/solver";
-import { checkCompletion, updateAllErrors } from "@/lib/sudoku/validator";
-import { autoFillNotesClassic } from "@/lib/sudoku/autoNotes";
-import { showSubmitResult } from "@/lib/submitFeedback";
-import { sudokuService } from "@/lib/sudokuService";
 import type { WinPayload } from "@/hooks/usePlayerProgress";
 
-const DEFAULT_PERSISTENCE_KEY = "sudoku-game-state";
+const DEFAULT_KEY = "sudoku-mini-game-state";
 const MAX_HINTS = 3;
 const MAX_MISTAKES = 3;
 
-export interface SelectedCell {
-  row: number;
-  col: number;
+function createEmptyBoard6(): Board {
+  return Array.from({ length: 6 }, () => Array.from({ length: 6 }, createEmptyCell));
+}
+
+function toMiniGenDifficulty(d: Difficulty): "easy" | "medium" | "hard" | "expert" {
+  if (d === "easy" || d === "medium" || d === "hard") return d;
+  return "expert";
 }
 
 interface PersistedState {
   difficulty: Difficulty;
   solution: number[][];
   board: Board;
-  selectedCell: SelectedCell | null;
+  selectedCell: { row: number; col: number } | null;
   isNotesMode: boolean;
   timerSeconds: number;
   isPaused: boolean;
@@ -49,51 +51,42 @@ interface PersistedState {
   history: HistoryEntry[];
 }
 
-function serialize(state: Omit<PersistedState, never>): string {
+function serialize(state: PersistedState): string {
   return JSON.stringify(state);
 }
 
 function deserialize(raw: string): PersistedState | null {
   try {
     const p = JSON.parse(raw) as PersistedState;
-    if (!p.solution || !p.board) return null;
+    if (!p.solution || !p.board || p.board.length !== 6) return null;
     return p;
   } catch {
     return null;
   }
 }
 
-export interface UseSudokuGameOptions {
+export interface UseMiniSudokuGameOptions {
   onWin?: (payload: WinPayload) => void;
-  /** Default `sudoku-game-state`. Use a different key for daily route so it does not overwrite classic progress. */
   persistenceKey?: string;
-  /** When set, initial load uses this puzzle instead of generating a random one. */
   seeded?: {
     puzzle: number[][];
     solution: number[][];
     difficulty: Difficulty;
   };
-  /** When set, completed games call `sudoku-daily-submit` via service flags. */
-  dailyMeta?: { challengeId: string; puzzleId: string | null };
-  /** Speed challenge: al ganar solo se llama `sudoku-speed-submit`, no `sudoku-save-game`. */
-  speedMeta?: { challengeId: string };
-  /** Sudoku diagonal 9x9: validación incluye diagonales principales. */
-  diagonal?: boolean;
 }
 
-export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
+export function useMiniSudokuGame(opts: UseMiniSudokuGameOptions = {}) {
   const { user, refreshProfile } = useAuth();
-  const storageKey = opts.persistenceKey ?? DEFAULT_PERSISTENCE_KEY;
-  const dailyMeta = opts.dailyMeta;
-  const speedMeta = opts.speedMeta;
-  const diagonal = opts.diagonal ?? false;
-  const applyBoardErrors = diagonal ? updateAllErrorsDiagonal : updateAllErrors;
+  const storageKey = opts.persistenceKey ?? DEFAULT_KEY;
+  const applyBoardErrors = updateAllErrorsMini6;
+  const checkCompletion = checkCompletionMini6;
+
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [solution, setSolution] = useState<number[][]>(() =>
-    Array.from({ length: 9 }, () => Array(9).fill(0))
+    Array.from({ length: 6 }, () => Array(6).fill(0))
   );
-  const [board, setBoard] = useState<Board>(() => createEmptyBoard());
-  const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
+  const [board, setBoard] = useState<Board>(() => createEmptyBoard6());
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const [isNotesMode, setIsNotesMode] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -101,16 +94,15 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   const [mistakes, setMistakes] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hintLoading, setHintLoading] = useState(false);
-  /** Misma celda: pista nivel 1 → 2 → 3 (cada uno consume 1 uso). */
-  const [hintChain, setHintChain] = useState<{ row: number; col: number; nextLevel: 1 | 2 | 3 } | null>(null);
+  const [hintChain, setHintChain] = useState<{ row: number; col: number; nextLevel: 1 | 2 | 3 } | null>(
+    null
+  );
   const [hintCoach, setHintCoach] = useState<{
     level: 1 | 2 | 3;
     zone?: string | null;
     technique?: string | null;
     explanation?: string | null;
   } | null>(null);
-  const [solveAnalysis, setSolveAnalysis] = useState<SolveResult | null>(null);
-  const [initialPuzzleNumbers, setInitialPuzzleNumbers] = useState<number[][] | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [generating, setGenerating] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -187,9 +179,6 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         setHintsUsed(0);
         setHistory([]);
         setHintCoach(null);
-        const p = seed.puzzle.map((r) => [...r]);
-        setInitialPuzzleNumbers(p);
-        setSolveAnalysis(solvePuzzleLogically(p));
         setGenerating(false);
       });
     },
@@ -198,18 +187,10 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
 
   const newGame = useCallback(
     (d: Difficulty = difficulty) => {
-      if (dailyMeta && opts.seeded) {
-        applySeed(opts.seeded);
-        return;
-      }
-      if (speedMeta && opts.seeded) {
-        applySeed(opts.seeded);
-        return;
-      }
       setGenerating(true);
       setDifficulty(d);
       queueMicrotask(() => {
-        const gen = generatePuzzle(d);
+        const gen = generate6x6(toMiniGenDifficulty(d));
         const givens = gen.puzzle.map((row) => row.map((v) => (v !== 0 ? 1 : 0)));
         const b = numbersToBoard(gen.puzzle, givens);
         const withErrors = applyBoardErrors(b);
@@ -224,13 +205,10 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         setHintsUsed(0);
         setHistory([]);
         setHintCoach(null);
-        const p = gen.puzzle.map((r) => [...r]);
-        setInitialPuzzleNumbers(p);
-        setSolveAnalysis(solvePuzzleLogically(p));
         setGenerating(false);
       });
     },
-    [applyBoardErrors, applySeed, dailyMeta, difficulty, opts.seeded, speedMeta]
+    [applyBoardErrors, difficulty]
   );
 
   const loadGame = useCallback(() => {
@@ -251,16 +229,11 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       setHintsUsed(p.hintsUsed);
       setHistory(p.history);
       setHintCoach(null);
-      const initial = p.board.map((row) =>
-        row.map((cell) => (cell.isGiven && cell.value != null ? cell.value : 0))
-      );
-      setInitialPuzzleNumbers(initial);
-      setSolveAnalysis(solvePuzzleLogically(initial));
       return true;
     } catch {
       return false;
     }
-  }, [storageKey]);
+  }, [storageKey, applyBoardErrors]);
 
   const hasSavedGame = useCallback(() => {
     try {
@@ -297,33 +270,8 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       };
       if (!user) onWinRef.current?.(payload);
 
-      if (speedMeta) {
-        try {
-          const { data, error } = await supabase.functions.invoke<{ rank?: number; total?: number }>(
-            "sudoku-speed-submit",
-            {
-              body: {
-                challenge_id: speedMeta.challengeId,
-                time_ms: timerSeconds * 1000,
-                errors: mistakesFinal,
-              },
-            }
-          );
-          if (error) throw error;
-          if (data?.rank != null && data?.total != null) {
-            toast.success(`Puesto #${data.rank} de ${data.total}`);
-          } else {
-            toast.success("Tiempo registrado");
-          }
-          await refreshProfile();
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : "No se pudo enviar el tiempo del speed");
-        }
-        return;
-      }
-
       const result = await sudokuService.submitPuzzleResult({
-        puzzleId: dailyMeta?.puzzleId ?? null,
+        puzzleId: null,
         difficulty,
         variant: "classic",
         timeMs: timerSeconds * 1000,
@@ -331,12 +279,12 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         hintsUsed: hintsUsedFinal,
         boardState: boardToNumbers(updated),
         solution,
-        isDaily: Boolean(dailyMeta),
-        challengeId: dailyMeta?.challengeId ?? null,
+        isDaily: false,
+        challengeId: null,
       });
       await showSubmitResult(result, refreshProfile);
     },
-    [dailyMeta, difficulty, refreshProfile, solution, speedMeta, timerSeconds, user]
+    [difficulty, refreshProfile, solution, timerSeconds, user]
   );
 
   useEffect(() => {
@@ -371,7 +319,6 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     setHintLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke<{
-        level?: number;
         zone?: string | null;
         technique?: string | null;
         value?: number | null;
@@ -387,10 +334,9 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       });
 
       if (error) {
-        toast.error("No pudimos obtener la pista del servidor. Aplicamos una pista local.");
+        toast.message("Pista local (mini 6×6)");
       }
 
-      // Niveles 1–2: solo orientación, sin colocar dígito (consume 1 pista cada uno).
       if (!error && data && (data.value === null || data.value === undefined) && hintLevel <= 2) {
         if (hintLevel === 1) {
           setHintCoach({
@@ -420,7 +366,12 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         });
         logHintUsage({ level: 3, technique: data.technique ?? null });
       } else if (error) {
-        setHintCoach(null);
+        setHintCoach({
+          level: 3,
+          technique: null,
+          explanation: "Valor correcto colocado.",
+        });
+        logHintUsage({ level: 3, technique: null });
       } else if (!data?.value) {
         setHintCoach(null);
         toast.message("Pista aplicada");
@@ -456,6 +407,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     }
   }, [
     board,
+    checkCompletion,
     difficulty,
     finalizeWin,
     hintChain,
@@ -470,6 +422,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
 
   const placeNumber = useCallback(
     (n: number) => {
+      if (n < 1 || n > 6) return;
       if (isCompleted || isPaused || mistakes >= MAX_MISTAKES) return;
       if (!selectedCell) return;
       const { row, col } = selectedCell;
@@ -525,12 +478,12 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       setBoard(updated);
 
       if (!isNotesMode) {
-        const br = Math.floor(row / 3);
+        const br = Math.floor(row / 2);
         const bc = Math.floor(col / 3);
         const rowHadEmpty = board[row].some((c) => c.value == null);
         const colHadEmpty = board.some((r) => r[col].value == null);
         let boxHadEmpty = false;
-        for (let r = br * 3; r < br * 3 + 3; r++) {
+        for (let r = br * 2; r < br * 2 + 2; r++) {
           for (let c = bc * 3; c < bc * 3 + 3; c++) {
             if (board[r][c].value == null) {
               boxHadEmpty = true;
@@ -539,9 +492,9 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
           }
           if (boxHadEmpty) break;
         }
-        if (rowHadEmpty && isRowFilled(updated, row)) vibrateShort();
-        else if (colHadEmpty && isColFilled(updated, col)) vibrateShort();
-        else if (boxHadEmpty && isBoxFilled(updated, br, bc)) vibrateShort();
+        if (rowHadEmpty && isRowFilledMini6(updated, row)) vibrateShort();
+        else if (colHadEmpty && isColFilledMini6(updated, col)) vibrateShort();
+        else if (boxHadEmpty && isBoxFilledMini6(updated, br, bc)) vibrateShort();
       }
       setHistory((h) => [
         ...h,
@@ -563,6 +516,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     },
     [
       board,
+      checkCompletion,
       difficulty,
       finalizeWin,
       hintsUsed,
@@ -625,7 +579,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
 
   const applyAutoFillNotes = useCallback(() => {
     if (isCompleted || isPaused) return;
-    setBoard(autoFillNotesClassic(board));
+    setBoard(autoFillNotesMini6(board));
   }, [board, isCompleted, isPaused]);
 
   const filledCount = board.flat().filter((c) => c.value != null).length;
@@ -668,8 +622,6 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         ? hintChain.nextLevel
         : 1,
     hintCoach,
-    solveAnalysis,
-    initialPuzzleNumbers,
     moveCount: history.length,
     applyAutoFillNotes,
   };
