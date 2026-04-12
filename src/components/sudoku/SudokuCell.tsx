@@ -64,7 +64,7 @@ export function SudokuCell({
       {cell.value != null ? (
         <span>{cell.value}</span>
       ) : (
-        <div className="grid h-full w-full grid-cols-3 grid-rows-3 gap-px p-0.5 text-[9px] font-normal leading-none text-muted-foreground sm:text-[10px]">
+        <div className="sudoku-notes grid h-full w-full grid-cols-3 grid-rows-3 gap-px p-0.5 text-[9px] font-normal leading-none text-muted-foreground sm:text-[10px]">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
             <span key={n} className="flex items-center justify-center">
               {cell.notes[n] ? n : ""}

@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { labelForAchievementKey } from "@/lib/achievementLabels";
+import { queryClient } from "@/queryClient";
 import type { SubmitResult } from "@/lib/sudokuService";
 
 export async function showSubmitResult(
@@ -20,6 +21,9 @@ export async function showSubmitResult(
       }, i * 500);
     });
     await refreshProfile();
+    await queryClient.invalidateQueries({ queryKey: ["sudoku-session-difficulties"] });
+    await queryClient.invalidateQueries({ queryKey: ["sudoku-user-achievement-keys"] });
+    await queryClient.invalidateQueries({ queryKey: ["profile-sudoku-best"] });
   } else if (result.error) {
     toast.error(result.error);
   }

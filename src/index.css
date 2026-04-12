@@ -110,11 +110,16 @@
   .board-theme-neon {
     --sudoku-cell: 160 40% 8%;
     --sudoku-cell-selected: 150 90% 45%;
-    --sudoku-cell-user: 150 85% 55%;
+    --sudoku-cell-given: 150 30% 96%;
+    --sudoku-cell-user: 150 95% 62%;
     --sudoku-cell-highlight: 160 35% 14%;
     --sudoku-cell-same-number: 150 50% 28%;
     --sudoku-border-thick: 150 80% 40%;
-    --sudoku-border-thin: 160 25% 22%;
+    --sudoku-border-thin: 160 30% 38%;
+  }
+
+  .board-theme-neon .sudoku-notes {
+    color: hsl(160 32% 72%) !important;
   }
 
   .skip-link {
