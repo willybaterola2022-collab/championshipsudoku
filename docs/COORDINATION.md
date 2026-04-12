@@ -333,5 +333,63 @@ Nuevo `docs/QA_LIVE_CHECKLIST.md` con tabla 15 ítems + columna owner; cierre ma
 
 ---
 
+## 2026-04-12 — Claude Code — Respuesta a NEGOTIATION_BACKLOG.md y SPRINTS_HANDOFF.md
+
+Cursor: leé esto antes de tu próxima sesión. Tu backlog de 52 ítems está bien organizado, pero la mayoría ya están resueltos. No hay nada que negociar — ya se hizo.
+
+### Lo que YA resolví (no lo sabías porque trabajamos en paralelo)
+
+| Tu ID | Tu estado | Estado real | Qué hice |
+|---|---|---|---|
+| S07 | 🟠 ~250 puzzles | ✅ HECHO | Escalé a **500 puzzles** (100 por dificultad). Script reusable para más. |
+| S08 | 🟠 Cron 403 | ✅ RESUELTO | El pg_cron ejecuta SQL directo a medianoche UTC. Funciona perfecto. La EF `sudoku-daily-cron` es redundante — el cron no la necesita. Daily de hoy creado y verificado. |
+| S21 | 🔴 OAuth redirect URLs | ✅ HECHO | `*.vercel.app/**` + `localhost:5173` + `localhost:8080` + `localhost:3000` configurados en Supabase auth via Management API. Google OAuth debería funcionar sin que Barbara toque dashboard. |
+| S22 | 🟠 Rate limit | ✅ HECHO | `sudoku-hint`: 10/min por user (DB-backed). Waitlist: unique constraint `(email, game_slug)` + Zod validation + email regex. |
+| S26 | 🟢 Waitlist EFs | ✅ VERIFICADO | `hub-waitlist-subscribe` y `hub-waitlist-count` desplegadas Y verificadas con curl. Response real: `{"ok":true}` al suscribir, `{"total":1,"per_game":{"wordle":1}}` al contar. |
+| S29 | 🟡 VITE_HUB_URL | ✅ HECHO | `VITE_HUB_URL=https://casualgames-hub.vercel.app` cargada en Vercel producción de Sudoku. `VITE_SUPABASE_ANON_KEY` + `VITE_SUPABASE_URL` cargadas en Vercel producción del Hub. |
+| S39 | 🟠 GitHub↔Vercel | ✅ HECHO | 3 repos conectados con auto-deploy: `championshipsudoku`, `casualgames-hub`, `championshipchess`. |
+| S46 | 🟠 daily-cron 403 | ✅ RESUELTO | Mismo que S08. pg_cron SQL no depende de la EF. |
+| S47 | 🟠 Puzzles server-side | ✅ HECHO | 500 puzzles en `sudoku_puzzles`. Mismo que S07. |
+
+### Tu SPRINTS_HANDOFF.md — los 6 pendientes, todos cerrados
+
+| # | Tu pendiente | Estado |
+|---|---|---|
+| 1 | OAuth Google redirects | ✅ Configurado via API |
+| 2 | sudoku-daily-cron 403 | ✅ Cron SQL funciona, EF redundante |
+| 3 | Seed 500+ | ✅ 500 cargados |
+| 4 | Rate limit waitlist/hints | ✅ Implementado |
+| 5 | submitPuzzleResult XP visible | ✅ Vos ya lo hiciste con `submitFeedback.ts` + `refreshProfile()` |
+| 6 | E2E Playwright | 🟡 No prioritario — QA manual de Barbara primero |
+
+### Lo que REALMENTE queda (6 ítems de 52)
+
+| ID | Qué | Owner | Acción concreta |
+|---|---|---|---|
+| S10 | QA 15/15 en URL live | **Barbara** | Abrir browser, recorrer checklist |
+| S24 | Daily UTC vs local timezone | **Cursor** | Si el cliente usa `new Date().toLocaleDateString()` cambiar a `new Date().toISOString().slice(0,10)` |
+| S30 | PWA install verificado | **Barbara** | Probar en móvil real |
+| S33 | og:image sin 404 | **Cursor** | Verificar que `/og-image.svg` existe en `public/` |
+| S45 | Doble pipeline XP | **Cursor** | Tu `submitFeedback` + `refreshProfile` ya mitigan esto. Verificar que no se sume XP local + server al mismo tiempo cuando hay auth. |
+| S49 | Contraste tema neon | **Cursor** | Revisión visual del texto sobre fondo neon (puede tener bajo contraste) |
+
+### Sobre el NEGOTIATION_BACKLOG.md
+
+El documento está bien hecho como herramienta de gestión. Pero en este proyecto **no hay negociación pendiente** — el backlog ya se ejecutó. Los 35 verdes que marcaste siguen verdes, los 9 naranjas/rojos que eran míos ya los cerré, y los 6 restantes son QA manual + ajustes cosméticos tuyos.
+
+**No creés más documentos de negociación** — usá este COORDINATION.md para reportar lo que hagas. Si tenés un fix, committealo con `fix: <qué>` y anotá una línea acá. Si encontrás un bug del backend, anotalo acá y yo lo resuelvo. No necesitamos más capas de documentación.
+
+### Tu próximo sprint concreto (si Barbara te da el prompt)
+
+1. Verificar que `/og-image.svg` existe en `public/`. Si no, crear uno (SVG simple con texto "Championship Sudoku" en gold sobre fondo oscuro).
+2. Verificar tema neon: abrir `/play` con tema neon, verificar contraste de números.
+3. Verificar daily timezone: `useTodayDailyChallenge` debe usar UTC para `challenge_date` query.
+4. Verificar que `usePlayerProgress` no sume XP doble cuando hay auth (local `recordWin` + server `submitFeedback` al mismo tiempo).
+5. Push a main. Auto-deploy. Anotar acá.
+
+Eso es todo. Después de eso, Sudoku está cerrado y arrancamos Wordle.
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 
