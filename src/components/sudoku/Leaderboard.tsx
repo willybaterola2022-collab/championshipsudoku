@@ -30,7 +30,7 @@ interface LeaderboardProps {
   emptyMessage?: string;
 }
 
-export function Leaderboard({ type, limit = 20, className }: LeaderboardProps) {
+export function Leaderboard({ type, limit = 20, className, emptyMessage }: LeaderboardProps) {
   const { user } = useAuth();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({

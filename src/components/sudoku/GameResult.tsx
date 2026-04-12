@@ -13,6 +13,9 @@ interface GameResultProps {
   footerExtra?: ReactNode;
   /** Línea opcional (p. ej. comparación con mejor tiempo del día). */
   compareLine?: string;
+  /** Percentil respecto a otros jugadores (misma dificultad / sesión). */
+  percentile?: number | null;
+  showPersonalBestBadge?: boolean;
 }
 
 function fmt(ms: number) {
@@ -30,6 +33,9 @@ export function GameResult({
   onClose,
   onShare,
   footerExtra,
+  compareLine,
+  percentile,
+  showPersonalBestBadge,
 }: GameResultProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
@@ -54,6 +60,11 @@ export function GameResult({
           <Dialog.Description className="mt-2 text-sm text-muted-foreground">
             Resumen de la partida
           </Dialog.Description>
+          {showPersonalBestBadge ? (
+            <p className="mt-3 inline-flex rounded-full border border-primary/50 bg-primary/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+              Nuevo récord personal
+            </p>
+          ) : null}
           <dl className="mt-6 space-y-3 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Tiempo</dt>
@@ -67,6 +78,12 @@ export function GameResult({
               <dt className="text-muted-foreground">Pistas</dt>
               <dd className="tabular-nums text-foreground">{hintsUsed}</dd>
             </div>
+            {percentile != null ? (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Ranking</dt>
+                <dd className="text-foreground">Más rápido que el {percentile}% de los jugadores</dd>
+              </div>
+            ) : null}
           </dl>
           {compareLine ? (
             <p className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-center text-sm text-muted-foreground">

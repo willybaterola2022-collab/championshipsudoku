@@ -71,12 +71,15 @@ export interface UseSudokuGameOptions {
   };
   /** When set, completed games call `sudoku-daily-submit` via service flags. */
   dailyMeta?: { challengeId: string; puzzleId: string | null };
+  /** Speed challenge: al ganar solo se llama `sudoku-speed-submit`, no `sudoku-save-game`. */
+  speedMeta?: { challengeId: string };
 }
 
 export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   const { user, refreshProfile } = useAuth();
   const storageKey = opts.persistenceKey ?? DEFAULT_PERSISTENCE_KEY;
   const dailyMeta = opts.dailyMeta;
+  const speedMeta = opts.speedMeta;
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [solution, setSolution] = useState<number[][]>(() =>
     Array.from({ length: 9 }, () => Array(9).fill(0))
@@ -90,6 +93,8 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   const [mistakes, setMistakes] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hintLoading, setHintLoading] = useState(false);
+  /** Misma celda: pista nivel 1 → 2 → 3 (cada uno consume 1 uso). */
+  const [hintChain, setHintChain] = useState<{ row: number; col: number; nextLevel: 1 | 2 | 3 } | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [generating, setGenerating] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -174,6 +179,10 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         applySeed(opts.seeded);
         return;
       }
+      if (speedMeta && opts.seeded) {
+        applySeed(opts.seeded);
+        return;
+      }
       setGenerating(true);
       setDifficulty(d);
       queueMicrotask(() => {
@@ -194,7 +203,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         setGenerating(false);
       });
     },
-    [applySeed, dailyMeta, difficulty, opts.seeded]
+    [applySeed, dailyMeta, difficulty, opts.seeded, speedMeta]
   );
 
   const loadGame = useCallback(() => {
@@ -243,6 +252,177 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       loadGame();
     }
   }, [applySeed, hasSavedGame, loadGame, newGame, opts.seeded]);
+
+  const finalizeWin = useCallback(
+    async (updated: Board, hintsUsedFinal: number, mistakesFinal: number) => {
+      const payload: WinPayload = {
+        difficulty,
+        variant: "classic",
+        timeMs: timerSeconds * 1000,
+        errors: mistakesFinal,
+        hintsUsed: hintsUsedFinal,
+      };
+      if (!user) onWinRef.current?.(payload);
+
+      if (speedMeta) {
+        try {
+          const { data, error } = await supabase.functions.invoke<{ rank?: number; total?: number }>(
+            "sudoku-speed-submit",
+            {
+              body: {
+                challenge_id: speedMeta.challengeId,
+                time_ms: timerSeconds * 1000,
+                errors: mistakesFinal,
+              },
+            }
+          );
+          if (error) throw error;
+          if (data?.rank != null && data?.total != null) {
+            toast.success(`Puesto #${data.rank} de ${data.total}`);
+          } else {
+            toast.success("Tiempo registrado");
+          }
+          await refreshProfile();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "No se pudo enviar el tiempo del speed");
+        }
+        return;
+      }
+
+      const result = await sudokuService.submitPuzzleResult({
+        puzzleId: dailyMeta?.puzzleId ?? null,
+        difficulty,
+        variant: "classic",
+        timeMs: timerSeconds * 1000,
+        errors: mistakesFinal,
+        hintsUsed: hintsUsedFinal,
+        boardState: boardToNumbers(updated),
+        solution,
+        isDaily: Boolean(dailyMeta),
+        challengeId: dailyMeta?.challengeId ?? null,
+      });
+      await showSubmitResult(result, refreshProfile);
+    },
+    [dailyMeta, difficulty, refreshProfile, solution, speedMeta, timerSeconds, user]
+  );
+
+  useEffect(() => {
+    if (!selectedCell) {
+      setHintChain(null);
+      return;
+    }
+    setHintChain((prev) => {
+      if (prev && prev.row === selectedCell.row && prev.col === selectedCell.col) return prev;
+      return { row: selectedCell.row, col: selectedCell.col, nextLevel: 1 };
+    });
+  }, [selectedCell]);
+
+  const useHint = useCallback(async () => {
+    if (!FEATURES.hints) {
+      toast.message("Pistas desactivadas en esta build.");
+      return;
+    }
+    if (isCompleted || isPaused || hintLoading) return;
+    if (!selectedCell) {
+      toast.message("Seleccioná una celda");
+      return;
+    }
+    if (hintsUsed >= MAX_HINTS) return;
+    const { row, col } = selectedCell;
+    if (board[row][col].isGiven) return;
+
+    const hintLevel =
+      hintChain && hintChain.row === row && hintChain.col === col ? hintChain.nextLevel : 1;
+
+    const val = solution[row][col];
+    setHintLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<{
+        level?: number;
+        zone?: string | null;
+        technique?: string | null;
+        value?: number | null;
+        explanation?: string | null;
+      }>("sudoku-hint", {
+        body: {
+          board: boardToNumbers(board),
+          row,
+          col,
+          solution,
+          level: hintLevel,
+        },
+      });
+
+      if (error) {
+        toast.error("No pudimos obtener la pista del servidor. Aplicamos una pista local.");
+      }
+
+      // Niveles 1–2: solo orientación, sin colocar dígito (consume 1 pista cada uno).
+      if (!error && data && (data.value === null || data.value === undefined) && hintLevel <= 2) {
+        if (hintLevel === 1 && data.zone) {
+          toast.message("Pista — zona", { description: data.zone });
+        } else if (hintLevel === 2) {
+          toast.message(data.technique ?? "Técnica", {
+            description: data.explanation ?? "Seguí analizando la celda.",
+          });
+        } else {
+          toast.message("Pista", { description: "Seguí con el siguiente nivel de ayuda." });
+        }
+        setHintsUsed((h) => h + 1);
+        setHintChain({ row, col, nextLevel: (hintLevel + 1) as 2 | 3 });
+        return;
+      }
+
+      const placed = !error && data?.value != null && data.value !== undefined ? data.value : val;
+      if (!error && data?.value != null && data.explanation) {
+        toast.message("Pista", { description: data.explanation });
+      } else if (error) {
+        /* ya mostramos error arriba; colocamos valor local */
+      } else if (!data?.value) {
+        toast.message("Pista aplicada");
+      }
+
+      const next = cloneBoard(board);
+      next[row][col] = { ...next[row][col], value: placed, notes: {} };
+      const updated = updateAllErrors(next);
+      setBoard(updated);
+      setHintsUsed((h) => h + 1);
+      setHintChain(null);
+      setHistory((hist) => [
+        ...hist,
+        {
+          row,
+          col,
+          previousValue: board[row][col].value,
+          previousNotes: { ...board[row][col].notes },
+          newValue: placed,
+          newNotes: {},
+        },
+      ]);
+
+      if (checkCompletion(updated)) {
+        setIsCompleted(true);
+        gameSounds.playWin();
+        void finalizeWin(updated, hintsUsed + 1, mistakes);
+      }
+    } catch {
+      toast.error("No pudimos obtener la pista. Intentá de nuevo.");
+    } finally {
+      setHintLoading(false);
+    }
+  }, [
+    board,
+    difficulty,
+    finalizeWin,
+    hintChain,
+    hintLoading,
+    hintsUsed,
+    isCompleted,
+    isPaused,
+    mistakes,
+    selectedCell,
+    solution,
+  ]);
 
   const placeNumber = useCallback(
     (n: number) => {
@@ -334,45 +514,20 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       if (checkCompletion(updated) && nextMistakes < MAX_MISTAKES) {
         setIsCompleted(true);
         gameSounds.playWin();
-        const payload: WinPayload = {
-          difficulty,
-          variant: "classic",
-          timeMs: timerSeconds * 1000,
-          errors: nextMistakes,
-          hintsUsed,
-        };
-        void (async () => {
-          if (!user) onWinRef.current?.(payload);
-          const result = await sudokuService.submitPuzzleResult({
-            puzzleId: dailyMeta?.puzzleId ?? null,
-            difficulty,
-            variant: "classic",
-            timeMs: timerSeconds * 1000,
-            errors: nextMistakes,
-            hintsUsed,
-            boardState: boardToNumbers(updated),
-            solution,
-            isDaily: Boolean(dailyMeta),
-            challengeId: dailyMeta?.challengeId ?? null,
-          });
-          await showSubmitResult(result, refreshProfile);
-        })();
+        void finalizeWin(updated, hintsUsed, nextMistakes);
       }
     },
     [
       board,
-      dailyMeta,
       difficulty,
+      finalizeWin,
       hintsUsed,
       isCompleted,
       isNotesMode,
       isPaused,
       mistakes,
-      refreshProfile,
       selectedCell,
       solution,
-      timerSeconds,
-      user,
     ]
   );
 
@@ -423,151 +578,6 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     setSelectedCell({ row, col });
   }, [isCompleted]);
 
-  const useHint = useCallback(async () => {
-    if (!FEATURES.hints) {
-      toast.message("Pistas desactivadas en esta build.");
-      return;
-    }
-    if (isCompleted || isPaused || hintLoading) return;
-    if (!selectedCell) {
-      toast.message("Seleccioná una celda");
-      return;
-    }
-    if (hintsUsed >= MAX_HINTS) return;
-    const { row, col } = selectedCell;
-    if (board[row][col].isGiven) return;
-
-    const val = solution[row][col];
-    setHintLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke<{
-        value?: number;
-        explanation?: string;
-      }>("sudoku-hint", {
-        body: {
-          board: boardToNumbers(board),
-          row,
-          col,
-          solution,
-        },
-      });
-      if (error) {
-        toast.error("No pudimos obtener la pista del servidor. Aplicamos una pista local.");
-      }
-      if (!error && data?.value != null) {
-        if (data.explanation) toast.message("Pista", { description: data.explanation });
-        const next = cloneBoard(board);
-        next[row][col] = {
-          ...next[row][col],
-          value: data.value,
-          notes: {},
-        };
-        const updated = updateAllErrors(next);
-        setBoard(updated);
-        setHintsUsed((h) => h + 1);
-        setHistory((hist) => [
-          ...hist,
-          {
-            row,
-            col,
-            previousValue: board[row][col].value,
-            previousNotes: { ...board[row][col].notes },
-            newValue: data.value ?? null,
-            newNotes: {},
-          },
-        ]);
-        if (checkCompletion(updated)) {
-          setIsCompleted(true);
-          const payload: WinPayload = {
-            difficulty,
-            variant: "classic",
-            timeMs: timerSeconds * 1000,
-            errors: mistakes,
-            hintsUsed: hintsUsed + 1,
-          };
-          void (async () => {
-            if (!user) onWinRef.current?.(payload);
-            const result = await sudokuService.submitPuzzleResult({
-              puzzleId: dailyMeta?.puzzleId ?? null,
-              difficulty,
-              variant: "classic",
-              timeMs: timerSeconds * 1000,
-              errors: mistakes,
-              hintsUsed: hintsUsed + 1,
-              boardState: boardToNumbers(updated),
-              solution,
-              isDaily: Boolean(dailyMeta),
-              challengeId: dailyMeta?.challengeId ?? null,
-            });
-            await showSubmitResult(result, refreshProfile);
-          })();
-        }
-      } else {
-        const next = cloneBoard(board);
-        next[row][col] = { ...next[row][col], value: val, notes: {} };
-        const updated = updateAllErrors(next);
-        setBoard(updated);
-        setHintsUsed((h) => h + 1);
-        setHistory((hist) => [
-          ...hist,
-          {
-            row,
-            col,
-            previousValue: board[row][col].value,
-            previousNotes: { ...board[row][col].notes },
-            newValue: val,
-            newNotes: {},
-          },
-        ]);
-        if (!error) toast.message("Pista aplicada");
-        if (checkCompletion(updated)) {
-          setIsCompleted(true);
-          const payload: WinPayload = {
-            difficulty,
-            variant: "classic",
-            timeMs: timerSeconds * 1000,
-            errors: mistakes,
-            hintsUsed: hintsUsed + 1,
-          };
-          void (async () => {
-            if (!user) onWinRef.current?.(payload);
-            const result = await sudokuService.submitPuzzleResult({
-              puzzleId: dailyMeta?.puzzleId ?? null,
-              difficulty,
-              variant: "classic",
-              timeMs: timerSeconds * 1000,
-              errors: mistakes,
-              hintsUsed: hintsUsed + 1,
-              boardState: boardToNumbers(updated),
-              solution,
-              isDaily: Boolean(dailyMeta),
-              challengeId: dailyMeta?.challengeId ?? null,
-            });
-            await showSubmitResult(result, refreshProfile);
-          })();
-        }
-      }
-    } catch {
-      toast.error("No pudimos obtener la pista. Intentá de nuevo.");
-    } finally {
-      setHintLoading(false);
-    }
-  }, [
-    board,
-    dailyMeta,
-    difficulty,
-    hintLoading,
-    hintsUsed,
-    isCompleted,
-    isPaused,
-    mistakes,
-    refreshProfile,
-    selectedCell,
-    solution,
-    timerSeconds,
-    user,
-  ]);
-
   const filledCount = board.flat().filter((c) => c.value != null).length;
 
   return {
@@ -600,5 +610,12 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     maxMistakes: MAX_MISTAKES,
     hintsRemaining: MAX_HINTS - hintsUsed,
     isOutOfLives: mistakes >= MAX_MISTAKES && !isCompleted,
+    nextHintLevel:
+      selectedCell &&
+      hintChain &&
+      hintChain.row === selectedCell.row &&
+      hintChain.col === selectedCell.col
+        ? hintChain.nextLevel
+        : 1,
   };
 }

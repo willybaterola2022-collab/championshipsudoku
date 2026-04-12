@@ -135,3 +135,17 @@
     animation: none !important;
   }
 }
+
+/* En landscape móvil, tablero y teclado en fila para evitar solaparse */
+@media (orientation: landscape) and (max-height: 520px) {
+  .sudoku-play-layout {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1rem;
+  }
+  .sudoku-play-layout .sudoku-board-wrap {
+    max-width: min(55vh, 480px);
+  }
+}

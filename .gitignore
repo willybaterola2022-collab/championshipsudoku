@@ -47,6 +47,8 @@ supabase/.temp
 
 # test
 coverage/
+test-results/
+playwright-report/
 
 # misc
 *.tsbuildinfo

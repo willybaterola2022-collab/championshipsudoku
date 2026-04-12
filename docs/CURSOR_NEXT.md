@@ -202,6 +202,10 @@ Recharts ya está instalado. Gráfico de línea con tiempo promedio por dificult
 
 ---
 
+## Estado implementación (Cursor)
+
+Tareas 1–5 cubiertas en código: hint con `level` 1–3 + `nextHintLevel` / `aria-label`, `useWinPostGameStats` + `GameResult`, `useWeeklyMissions` + `WeeklyMissions` (Landing + Profile), `/speed` + Navbar + `speedMeta` en `useSudokuGame`, daily con línea día UTC + dificultad. Si un RPC no existe en tu proyecto Supabase, la UI de Speed muestra error recuperable.
+
 ## LO QUE NO TOCAR
 
 - `supabase/**` — no tocar EFs ni migraciones

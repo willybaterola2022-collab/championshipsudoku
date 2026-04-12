@@ -42,6 +42,17 @@ export function Navbar() {
           >
             Diario
           </NavLink>
+          <NavLink
+            to="/speed"
+            className={({ isActive }) =>
+              cn(
+                "rounded-full px-3 py-1.5 transition-colors",
+                isActive ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              )
+            }
+          >
+            Speed
+          </NavLink>
           {HUB_URL ? (
             <a
               href={withAppUtm(HUB_URL, "nav")}

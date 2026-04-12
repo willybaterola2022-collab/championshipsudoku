@@ -12,13 +12,15 @@ import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { Timer } from "@/components/sudoku/Timer";
 import { FEATURES } from "@/config";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
+import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import type { DailyChallengeRow } from "@/hooks/useTodayDailyChallenge";
 import { utcToday, useTodayDailyChallenge } from "@/hooks/useTodayDailyChallenge";
 import { supabase } from "@/integrations/supabase/client";
-import type { Difficulty } from "@/lib/sudoku/types";
+import { DIFFICULTY_CONFIG, type Difficulty } from "@/lib/sudoku/types";
 import { toast } from "sonner";
 
 function fmtMs(ms: number) {
@@ -28,7 +30,10 @@ function fmtMs(ms: number) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
 function DailyInner({ row }: { row: DailyChallengeRow }) {
+  const { user } = useAuth();
   const { recordWin } = usePlayerProgress();
   const seeded = useMemo(() => {
     const puzzle = JSON.parse(row.sudoku_puzzles.puzzle) as number[][];
@@ -45,6 +50,13 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
     persistenceKey: "sudoku-daily-game-state",
     dailyMeta: { challengeId: row.id, puzzleId: row.puzzle_id },
     onWin: recordWin,
+  });
+
+  const winStats = useWinPostGameStats({
+    userId: user?.id,
+    isCompleted: game.isCompleted,
+    difficulty: game.difficulty,
+    timeMs: game.timerSeconds * 1000,
   });
 
   const isTodayRow = row.challenge_date === utcToday();
@@ -93,6 +105,7 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
     day: "numeric",
     month: "long",
   });
+  const weekdayUtc = DAY_NAMES_ES[new Date(row.challenge_date + "T12:00:00Z").getUTCDay()];
 
   return (
     <>
@@ -100,6 +113,9 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-serif text-3xl text-gradient-gold">Puzzle del día</h1>
+            <p className="mt-1 text-sm text-foreground">
+              {weekdayUtc} — {DIFFICULTY_CONFIG[row.difficulty].label} (+{row.bonus_xp} XP)
+            </p>
             <p className="capitalize text-muted-foreground">{dateLabel}</p>
             {!isTodayRow && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -154,6 +170,7 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
           onHint={() => void game.useHint()}
           hintsRemaining={game.hintsRemaining}
           hintLoading={game.hintLoading}
+          hintLevelNext={game.nextHintLevel}
           disabled={game.isCompleted || game.mistakes >= game.maxMistakes}
         />
 
@@ -176,6 +193,8 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
+        percentile={winStats.percentile}
+        showPersonalBestBadge={winStats.isPersonalBest}
         compareLine={compareLine}
         footerExtra={
           <a href="#daily-leaderboard" className="text-center text-sm text-primary hover:underline">

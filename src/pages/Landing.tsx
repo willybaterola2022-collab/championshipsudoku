@@ -14,8 +14,11 @@ import { NumPad } from "@/components/sudoku/NumPad";
 import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { StreakCounter } from "@/components/sudoku/StreakCounter";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
+import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
+import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import { cn } from "@/lib/utils";
@@ -23,8 +26,15 @@ import { cn } from "@/lib/utils";
 const HOWTO_KEY = "sudoku-first-visit-help-v1";
 
 export default function Landing() {
+  const { user } = useAuth();
   const { progress, rank, recordWin } = usePlayerProgress();
   const game = useSudokuGame({ onWin: recordWin });
+  const winStats = useWinPostGameStats({
+    userId: user?.id,
+    isCompleted: game.isCompleted,
+    difficulty: game.difficulty,
+    timeMs: game.timerSeconds * 1000,
+  });
   const [theme, setTheme] = useState<BoardThemeId>(() => readBoardTheme());
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -156,6 +166,7 @@ export default function Landing() {
           onHint={() => void game.useHint()}
           hintsRemaining={game.hintsRemaining}
           hintLoading={game.hintLoading}
+          hintLevelNext={game.nextHintLevel}
           disabled={game.isCompleted || game.mistakes >= game.maxMistakes}
         />
 
@@ -175,6 +186,8 @@ export default function Landing() {
           <XPBar progress={progress} rank={rank} className="w-full sm:max-w-xs" />
         </div>
 
+        {user ? <WeeklyMissions /> : null}
+
         <ProgressBar filled={game.filledCount} />
       </main>
 
@@ -185,6 +198,8 @@ export default function Landing() {
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
+        percentile={winStats.percentile}
+        showPersonalBestBadge={winStats.isPersonalBest}
       />
       <GameOverLost open={game.isOutOfLives} onNewGame={() => game.newGame(game.difficulty)} />
     </div>

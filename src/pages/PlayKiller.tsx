@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { GameOverLost } from "@/components/GameOverLost";
 import { BoardThemeSelector, readBoardTheme, writeBoardTheme, type BoardThemeId } from "@/components/sudoku/BoardThemeSelector";
 import { CageOverlay } from "@/components/sudoku/CageOverlay";
 import { DifficultySelector } from "@/components/sudoku/DifficultySelector";
@@ -27,7 +28,7 @@ export default function PlayKiller() {
   );
 
   useSudokuKeyboard({
-    enabled: !game.isCompleted && !game.isPaused,
+    enabled: !game.isCompleted && !game.isPaused && !game.isOutOfLives,
     onDigit: game.placeNumber,
     onErase: game.eraseCell,
     onUndo: game.undo,
@@ -80,10 +81,19 @@ export default function PlayKiller() {
       </header>
 
       <main className="container space-y-6 px-4 pb-12 pt-6">
-        <p className="text-center text-sm text-muted-foreground">
-          Cada jaula (región delimitada) debe sumar el número indicado, sin repetir dígitos en fila, columna ni
-          jaula. No hay celdas dadas al inicio. Las pistas por IA no están disponibles en Killer en esta versión.
-        </p>
+        <div className="space-y-2 text-center text-sm text-muted-foreground">
+          <p>
+            Cada <strong className="text-foreground">jaula</strong> (región con borde) debe sumar el número de la
+            esquina, sin repetir 1–9 en fila, columna ni jaula. No hay números dados al inicio: deducí desde las
+            sumas.
+          </p>
+          <p>
+            <Link to="/" className="text-primary hover:underline">
+              Sudoku clásico
+            </Link>{" "}
+            — si nunca jugaste Killer, probá primero Fácil en clásico.
+          </p>
+        </div>
         <BoardThemeSelector value={theme} onChange={(id) => { setTheme(id); writeBoardTheme(id); }} />
 
         <div className="relative mx-auto w-[min(90vw,450px)]">
@@ -100,6 +110,7 @@ export default function PlayKiller() {
 
         <GameControls
           showHints={false}
+          hintUnavailableReason="En Killer no hay pistas con IA en esta versión (solo deshacer y notas)."
           canUndo={game.history.length > 0}
           notesActive={game.isNotesMode}
           onUndo={game.undo}
@@ -125,6 +136,7 @@ export default function PlayKiller() {
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
       />
+      <GameOverLost open={game.isOutOfLives} onNewGame={() => game.newGame(game.difficulty)} />
     </div>
   );
 }

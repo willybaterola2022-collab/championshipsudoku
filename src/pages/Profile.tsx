@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, User } from "lucide-react";
+import { Eye, EyeOff, LogOut, User } from "lucide-react";
+import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
+import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { ACHIEVEMENT_KEYS, ACHIEVEMENT_LABELS } from "@/lib/achievementLabels";
+import { getPendingSyncCount } from "@/lib/sudokuService";
 import { DIFFICULTY_CONFIG, type Difficulty } from "@/lib/sudoku/types";
 import { cn } from "@/lib/utils";
 
 export default function Profile() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
+  const [streamerMode, setStreamerMode] = useState(false);
   const { progress, rank, isServerProgress, sessionDifficultyError } = usePlayerProgress();
 
   const { data: unlockedKeys, isFetched: achievementsFetched } = useQuery({
@@ -99,18 +103,52 @@ export default function Profile() {
             <p className="text-sm text-muted-foreground">
               Nivel {progress.level} — {rank}
             </p>
+            {user.email ? (
+              <p
+                className={cn(
+                  "max-w-xs truncate text-xs text-muted-foreground",
+                  streamerMode && "select-none blur-sm"
+                )}
+              >
+                {user.email}
+              </p>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => void signOut().then(() => refreshProfile())}
-            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStreamerMode((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted"
+              aria-pressed={streamerMode}
+            >
+              {streamerMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              Modo streamer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const pending = getPendingSyncCount();
+                if (
+                  pending > 0 &&
+                  !window.confirm(
+                    `Tenés ${pending} partida(s) sin sincronizar. ¿Cerrar sesión igual?`
+                  )
+                ) {
+                  return;
+                }
+                void signOut().then(() => refreshProfile());
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
+          </div>
         </div>
 
         <XPBar progress={progress} rank={rank} className="max-w-md" />
+
+        <WeeklyMissions />
 
         {totalSolved === 0 && (
           <p className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
@@ -188,6 +226,16 @@ export default function Profile() {
             })}
           </div>
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Datos personales: podés solicitar copia o aclaraciones sobre el tratamiento escribiendo desde el email
+          con el que te registraste al soporte del producto (Casual Games).
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Datos personales: podés solicitar copia o aclaraciones sobre el tratamiento escribiendo desde el email
+          con el que te registraste al soporte del producto (Casual Games).
+        </p>
 
         <Link to="/" className="inline-block text-sm text-primary hover:underline">
           Volver a jugar

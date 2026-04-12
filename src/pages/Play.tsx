@@ -11,15 +11,24 @@ import { NumPad } from "@/components/sudoku/NumPad";
 import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { Timer } from "@/components/sudoku/Timer";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
+import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import { DIFFICULTY_CONFIG } from "@/lib/sudoku/types";
 import { cn } from "@/lib/utils";
 
 export default function Play() {
+  const { user } = useAuth();
   const { recordWin } = usePlayerProgress();
   const game = useSudokuGame({ onWin: recordWin });
+  const winStats = useWinPostGameStats({
+    userId: user?.id,
+    isCompleted: game.isCompleted,
+    difficulty: game.difficulty,
+    timeMs: game.timerSeconds * 1000,
+  });
   const [theme, setTheme] = useState<BoardThemeId>(() => readBoardTheme());
 
   const themeClass = useMemo(
@@ -102,6 +111,7 @@ export default function Play() {
           onHint={() => void game.useHint()}
           hintsRemaining={game.hintsRemaining}
           hintLoading={game.hintLoading}
+          hintLevelNext={game.nextHintLevel}
           disabled={game.isCompleted || game.mistakes >= game.maxMistakes}
         />
 
@@ -120,6 +130,8 @@ export default function Play() {
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
+        percentile={winStats.percentile}
+        showPersonalBestBadge={winStats.isPersonalBest}
       />
       <GameOverLost open={game.isOutOfLives} onNewGame={() => game.newGame(game.difficulty)} />
     </div>

@@ -10,6 +10,8 @@ interface GameControlsProps {
   canUndo: boolean;
   hintsRemaining: number;
   hintLoading?: boolean;
+  /** Próximo nivel de pista (1–3) para la celda seleccionada. */
+  hintLevelNext?: 1 | 2 | 3;
   showHints?: boolean;
   /** Si no hay pistas (p. ej. Killer), mostrar bombilla deshabilitada con este texto */
   hintUnavailableReason?: string;
@@ -25,7 +27,9 @@ export function GameControls({
   canUndo,
   hintsRemaining,
   hintLoading,
+  hintLevelNext = 1,
   showHints = true,
+  hintUnavailableReason,
   disabled,
 }: GameControlsProps) {
   const btn =
@@ -54,7 +58,7 @@ export function GameControls({
           className={cn(btn)}
           disabled={disabled || hintsRemaining <= 0 || hintLoading}
           onClick={onHint}
-          aria-label="Pista"
+          aria-label={`Pista nivel ${hintLevelNext} de 3`}
         >
           <Lightbulb className="h-7 w-7" />
           {hintsRemaining > 0 && (
