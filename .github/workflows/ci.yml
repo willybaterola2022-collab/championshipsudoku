@@ -1,0 +1,38 @@
+name: CI
+
+  on:
+    push:
+      branches: [main]                                                                                   
+    pull_request:
+      branches: [main]                                                                                   
+                                                                  
+  jobs:
+    frontend:
+      name: Frontend (typecheck + build)
+      runs-on: ubuntu-latest                                                                             
+      steps:
+        - uses: actions/checkout@v4                                                                      
+        - uses: actions/setup-node@v4                                                                    
+          with:
+            node-version: "20"                                                                           
+            cache: "npm"                                          
+        - run: npm ci
+        - run: npm run typecheck                                                                         
+        - run: npm run build
+          env:                                                                                           
+            VITE_SUPABASE_URL: https://ahsullbcdrekmribkcbm.supabase.co
+            VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'dummy-key-for-build' }}            
+        - name: Hygiene check                                                                            
+          run: |                                                                                         
+            if grep -rn "console\.log" src/ --include="*.ts" --include="*.tsx"; then                     
+              echo "::error::console.log found in src/"                                                  
+              exit 1                                                                                     
+            fi                                                                                           
+                                                                                                         
+    edge-functions:                                               
+      name: Edge Function validator
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Run ef-validator                                                                         
+          run: bash scripts/ef-validator.sh
