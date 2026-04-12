@@ -1,4 +1,4 @@
-import { Grid3x3, Maximize2, Swords } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { GameOverLost } from "@/components/GameOverLost";
 import { HowToPlayDialog } from "@/components/HowToPlayDialog";
 import { Navbar } from "@/components/Navbar";
 import { BoardThemeSelector, readBoardTheme, writeBoardTheme, type BoardThemeId } from "@/components/sudoku/BoardThemeSelector";
+import { GameModePreview } from "@/components/sudoku/GameModePreview";
 import { DailyCountdown } from "@/components/sudoku/DailyCountdown";
 import { DifficultySelector } from "@/components/sudoku/DifficultySelector";
 import { GameControls } from "@/components/sudoku/GameControls";
@@ -105,7 +106,7 @@ export default function Landing() {
           setHelpOpen(false);
         }}
       />
-      <main className="container space-y-6 px-4 pb-10 pt-6">
+      <main className="container space-y-8 px-4 pb-10 pt-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-serif text-4xl text-gradient-gold sm:text-5xl">Sudoku</h1>
@@ -122,60 +123,129 @@ export default function Landing() {
               disabled={game.generating}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <Link
+            to="/play"
+            className="glass hidden self-start rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary transition hover:border-primary/50 hover:bg-primary/10 sm:inline-flex"
+          >
+            Vista amplia
+          </Link>
+        </div>
+
+        <section className="space-y-3" aria-labelledby="modes-heading">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="modes-heading" className="font-serif text-lg tracking-tight text-foreground sm:text-xl">
+                Modos de juego
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Deslizá en el celular · En escritorio, grilla completa.
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "-mx-4 flex gap-3 overflow-x-auto scroll-pl-4 scroll-pr-4 px-4 pb-2 pt-0.5 [scrollbar-width:thin] snap-x snap-mandatory",
+              "md:mx-0 md:grid md:grid-cols-3 md:gap-3 md:overflow-visible md:px-0 md:pb-0 md:snap-none lg:grid-cols-5"
+            )}
+          >
+            <div
+              className="relative min-w-[min(86vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-primary/35 bg-gradient-to-b from-primary/10 to-card/40 p-4 shadow-[0_0_0_1px_hsla(43,90%,55%,0.12)] md:min-w-0"
+              aria-current="page"
+            >
+              <div className="mb-3 rounded-lg bg-muted/40 p-2 ring-1 ring-border/45">
+                <GameModePreview mode="home" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Inicio</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">Clásico 9×9 en esta página.</p>
+            </div>
             <Link
               to="/play"
-              className="glass inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:text-primary"
-              aria-label="Pantalla completa"
+              className="group relative min-w-[min(86vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-card/90 to-muted/15 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 md:min-w-0"
             >
-              <Maximize2 className="h-5 w-5" />
+              <div className="mb-3 rounded-lg bg-muted/40 p-2 ring-1 ring-border/45 transition group-hover:ring-primary/25">
+                <GameModePreview mode="wide" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Vista amplia</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">HUD completo, filtros y técnicas.</p>
             </Link>
             <Link
-              to="/play"
-              className="glass inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:text-primary"
-              aria-label="Vista de juego clásico"
+              to="/play?variant=diagonal"
+              className="group relative min-w-[min(86vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-card/90 to-muted/15 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 md:min-w-0"
             >
-              <Grid3x3 className="h-5 w-5" />
+              <div className="mb-3 rounded-lg bg-muted/40 p-2 ring-1 ring-border/45 transition group-hover:ring-primary/25">
+                <GameModePreview mode="diagonal" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Diagonal</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">Diagonales únicas 1–9.</p>
+            </Link>
+            <Link
+              to="/play/mini"
+              className="group relative min-w-[min(86vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-card/90 to-muted/15 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 md:min-w-0"
+            >
+              <div className="mb-3 rounded-lg bg-muted/40 p-2 ring-1 ring-border/45 transition group-hover:ring-primary/25">
+                <GameModePreview mode="mini" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Mini 6×6</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">Cajas 2×3, números 1–6.</p>
             </Link>
             <Link
               to="/play/killer"
-              className="glass inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-muted-foreground hover:text-primary"
-              aria-label="Killer Sudoku"
+              className="group relative min-w-[min(86vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-card/90 to-muted/15 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 md:min-w-0"
             >
-              <Swords className="h-5 w-5" />
+              <div className="mb-3 rounded-lg bg-muted/40 p-2 ring-1 ring-border/45 transition group-hover:ring-primary/25">
+                <GameModePreview mode="killer" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">Killer</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">Jaulas y sumas.</p>
             </Link>
           </div>
-        </div>
+        </section>
 
-        <BoardThemeSelector value={theme} onChange={onThemeChange} />
+        <section className="space-y-2" aria-labelledby="theme-heading">
+          <h2 id="theme-heading" className="font-serif text-lg tracking-tight text-foreground sm:text-xl">
+            Apariencia del tablero
+          </h2>
+          <p className="text-sm text-muted-foreground">Colores y contraste (se guarda en este dispositivo).</p>
+          <BoardThemeSelector value={theme} onChange={onThemeChange} />
+        </section>
 
         {featuredLoading ? (
-          <div className="h-24 animate-pulse rounded-lg bg-muted/40" data-placeholder />
+          <div className="h-32 animate-pulse rounded-2xl bg-muted/40" data-placeholder />
         ) : featuredRows && featuredRows.length > 0 ? (
-          <section className="space-y-3" aria-labelledby="featured-heading">
-            <h2 id="featured-heading" className="font-serif text-xl text-primary">
-              Puzzles destacados
-            </h2>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+          <section className="space-y-4" aria-labelledby="featured-heading">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-amber-400" aria-hidden />
+                  <h2 id="featured-heading" className="font-serif text-xl text-gradient-gold sm:text-2xl">
+                    Destacados
+                  </h2>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">Selección del catálogo — tocá para abrir en vista amplia.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {featuredRows.map((p, i) => {
                 const diff = (p.difficulty as Difficulty) ?? "medium";
                 return (
                   <article
                     key={p.id}
-                    className="glass min-w-[220px] shrink-0 rounded-xl border border-border p-4"
+                    className="relative flex flex-col overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.07] via-card/50 to-card/80 p-5 shadow-[inset_0_1px_0_0_hsla(43,90%,55%,0.12)] transition hover:border-amber-500/35"
                   >
-                    <p className="text-xs font-semibold uppercase text-primary">Destacado #{i + 1}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{DIFFICULTY_CONFIG[diff].label}</p>
-                    <p className="mt-2 line-clamp-2 text-sm text-foreground">
+                    <span className="absolute right-3 top-3 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-200/90">
+                      {DIFFICULTY_CONFIG[diff].label}
+                    </span>
+                    <p className="pr-16 font-serif text-lg text-foreground">Destacado {i + 1}</p>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
                       {(p.techniques_required?.length ?? 0) > 0
-                        ? "Requiere técnicas del catálogo clasificadas."
-                        : "Selección del equipo."}
+                        ? "Curado por técnicas del solver — ideal para practicar patrones."
+                        : "Elegido por el equipo para retos equilibrados."}
                     </p>
                     <Link
                       to={`/play?loadFeatured=${p.id}`}
-                      className="mt-3 inline-block rounded-full border border-primary px-3 py-1.5 text-sm text-primary hover:bg-primary/10"
+                      className="mt-4 inline-flex w-fit items-center justify-center rounded-full bg-primary/90 px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary"
                     >
-                      Jugar
+                      Jugar ahora
                     </Link>
                   </article>
                 );
