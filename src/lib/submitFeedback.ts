@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { labelForAchievementKey } from "@/lib/achievementLabels";
 import type { SubmitResult } from "@/lib/sudokuService";
 
 export async function showSubmitResult(
@@ -15,7 +16,7 @@ export async function showSubmitResult(
     const ach = result.achievementsUnlocked ?? [];
     ach.forEach((key, i) => {
       window.setTimeout(() => {
-        toast.message("Logro desbloqueado", { description: key });
+        toast.message("Logro desbloqueado", { description: labelForAchievementKey(key) });
       }, i * 500);
     });
     await refreshProfile();

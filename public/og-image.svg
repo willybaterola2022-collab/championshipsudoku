@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0c12"/>
+      <stop offset="100%" style="stop-color:#151a24"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="80" y="80" width="400" height="400" rx="8" fill="none" stroke="#d4a843" stroke-width="4" opacity="0.9"/>
+  <path stroke="#d4a843" stroke-width="2" opacity="0.5" d="M200 80v400M320 80v400M440 80v400M80 200h400M80 320h400"/>
+  <text x="560" y="220" font-family="Georgia,serif" font-size="72" font-weight="700" fill="#e8c76a">Championship</text>
+  <text x="560" y="310" font-family="Georgia,serif" font-size="96" font-weight="700" fill="#d4a843">Sudoku</text>
+  <text x="560" y="400" font-family="system-ui,sans-serif" font-size="28" fill="#94a3b8">Puzzle diario · XP · Leaderboard</text>
+</svg>

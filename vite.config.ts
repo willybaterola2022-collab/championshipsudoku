@@ -14,7 +14,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["favicon.ico", "pwa-192.png", "pwa-512.png"],
+      includeAssets: ["favicon.svg", "og-image.svg"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp}"],
         runtimeCaching: [
@@ -50,14 +50,12 @@ export default defineConfig({
         lang: "es",
         dir: "ltr",
         icons: [
-          { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
-          { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },
-          { src: "/pwa-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { src: "/og-image.svg", sizes: "1200x630", type: "image/svg+xml", purpose: "any" },
         ],
         shortcuts: [
-          { name: "Daily Puzzle", short_name: "Daily", url: "/daily", icons: [{ src: "/pwa-192.png", sizes: "192x192" }] },
-          { name: "Play", short_name: "Play", url: "/play", icons: [{ src: "/pwa-192.png", sizes: "192x192" }] },
+          { name: "Daily Puzzle", short_name: "Daily", url: "/daily", icons: [{ src: "/favicon.svg", sizes: "192x192", type: "image/svg+xml" }] },
+          { name: "Play", short_name: "Play", url: "/play", icons: [{ src: "/favicon.svg", sizes: "192x192", type: "image/svg+xml" }] },
         ],
       },
     }),

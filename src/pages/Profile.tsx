@@ -6,34 +6,9 @@ import { XPBar } from "@/components/sudoku/XPBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { supabase } from "@/integrations/supabase/client";
+import { ACHIEVEMENT_KEYS, ACHIEVEMENT_LABELS } from "@/lib/achievementLabels";
 import { DIFFICULTY_CONFIG, type Difficulty } from "@/lib/sudoku/types";
 import { cn } from "@/lib/utils";
-
-const ACH_KEYS = [
-  "sudoku_first_puzzle",
-  "sudoku_streak_3",
-  "sudoku_streak_7",
-  "sudoku_perfect",
-  "sudoku_speed",
-  "sudoku_10_puzzles",
-  "sudoku_50_puzzles",
-  "sudoku_hard",
-  "sudoku_expert",
-  "sudoku_killer",
-] as const;
-
-const ACHIEVEMENT_LABELS: Record<(typeof ACH_KEYS)[number], string> = {
-  sudoku_first_puzzle: "Primer puzzle",
-  sudoku_streak_3: "Racha 3 días",
-  sudoku_streak_7: "Racha 7 días",
-  sudoku_perfect: "Sin errores",
-  sudoku_speed: "Velocidad",
-  sudoku_10_puzzles: "10 resueltos",
-  sudoku_50_puzzles: "50 resueltos",
-  sudoku_hard: "Difícil",
-  sudoku_expert: "Experto",
-  sudoku_killer: "Killer",
-};
 
 export default function Profile() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
@@ -194,7 +169,7 @@ export default function Profile() {
             </p>
           )}
           <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
-            {ACH_KEYS.map((key) => {
+            {ACHIEVEMENT_KEYS.map((key) => {
               const unlocked = unlockedKeys?.has(key) ?? false;
               const label = ACHIEVEMENT_LABELS[key];
               return (
