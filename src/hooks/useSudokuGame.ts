@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FEATURES } from "@/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePuzzle } from "@/lib/sudoku/generator";
@@ -13,6 +14,9 @@ import {
   type Difficulty,
   type HistoryEntry,
 } from "@/lib/sudoku/types";
+import { gameSounds } from "@/lib/gameSounds";
+import { vibrateShort } from "@/lib/haptics";
+import { isBoxFilled, isColFilled, isRowFilled } from "@/lib/sudoku/regionFilled";
 import { checkCompletion, updateAllErrors } from "@/lib/sudoku/validator";
 import { showSubmitResult } from "@/lib/submitFeedback";
 import { sudokuService } from "@/lib/sudokuService";
@@ -284,14 +288,37 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       if (n !== solution[row][col]) {
         nextMistakes = mistakes + 1;
         setMistakes(nextMistakes);
+        gameSounds.playError();
         toast.error("Ese número no va ahí");
         if (nextMistakes >= MAX_MISTAKES) {
           toast.message("Sin vidas", { description: "Reiniciá o empezá una partida nueva." });
         }
+      } else {
+        gameSounds.playCell();
       }
 
       const updated = updateAllErrors(next);
       setBoard(updated);
+
+      if (!isNotesMode) {
+        const br = Math.floor(row / 3);
+        const bc = Math.floor(col / 3);
+        const rowHadEmpty = board[row].some((c) => c.value == null);
+        const colHadEmpty = board.some((r) => r[col].value == null);
+        let boxHadEmpty = false;
+        for (let r = br * 3; r < br * 3 + 3; r++) {
+          for (let c = bc * 3; c < bc * 3 + 3; c++) {
+            if (board[r][c].value == null) {
+              boxHadEmpty = true;
+              break;
+            }
+          }
+          if (boxHadEmpty) break;
+        }
+        if (rowHadEmpty && isRowFilled(updated, row)) vibrateShort();
+        else if (colHadEmpty && isColFilled(updated, col)) vibrateShort();
+        else if (boxHadEmpty && isBoxFilled(updated, br, bc)) vibrateShort();
+      }
       setHistory((h) => [
         ...h,
         {
@@ -306,6 +333,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
 
       if (checkCompletion(updated) && nextMistakes < MAX_MISTAKES) {
         setIsCompleted(true);
+        gameSounds.playWin();
         const payload: WinPayload = {
           difficulty,
           variant: "classic",
@@ -396,6 +424,10 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   }, [isCompleted]);
 
   const useHint = useCallback(async () => {
+    if (!FEATURES.hints) {
+      toast.message("Pistas desactivadas en esta build.");
+      return;
+    }
     if (isCompleted || isPaused || hintLoading) return;
     if (!selectedCell) {
       toast.message("Seleccioná una celda");
@@ -567,5 +599,6 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     filledCount,
     maxMistakes: MAX_MISTAKES,
     hintsRemaining: MAX_HINTS - hintsUsed,
+    isOutOfLives: mistakes >= MAX_MISTAKES && !isCompleted,
   };
 }

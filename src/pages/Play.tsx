@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { GameOverLost } from "@/components/GameOverLost";
 import { BoardThemeSelector, readBoardTheme, writeBoardTheme, type BoardThemeId } from "@/components/sudoku/BoardThemeSelector";
 import { DifficultySelector } from "@/components/sudoku/DifficultySelector";
 import { GameControls } from "@/components/sudoku/GameControls";
@@ -27,7 +28,7 @@ export default function Play() {
   );
 
   useSudokuKeyboard({
-    enabled: !game.isCompleted && !game.isPaused,
+    enabled: !game.isCompleted && !game.isPaused && !game.isOutOfLives,
     onDigit: game.placeNumber,
     onErase: game.eraseCell,
     onUndo: game.undo,
@@ -82,12 +83,13 @@ export default function Play() {
       <main className="container space-y-6 px-4 pb-12 pt-6">
         <BoardThemeSelector value={theme} onChange={(id) => { setTheme(id); writeBoardTheme(id); }} />
 
-        <SudokuBoard
-          board={game.board}
-          selectedCell={game.selectedCell}
-          onSelectCell={game.selectCell}
-          sizeClassName="w-[min(90vw,450px)]"
-        />
+        <div className="sudoku-play-layout flex flex-col gap-4">
+          <SudokuBoard
+            board={game.board}
+            selectedCell={game.selectedCell}
+            onSelectCell={game.selectCell}
+            sizeClassName="w-[min(90vw,450px)] landscape:w-[min(55vh,450px)]"
+          />
 
         <ProgressBar filled={game.filledCount} />
 
@@ -108,6 +110,7 @@ export default function Play() {
           onInput={game.placeNumber}
           disabled={game.isCompleted || game.isPaused || game.mistakes >= game.maxMistakes}
         />
+        </div>
       </main>
 
       <GameResult
@@ -118,6 +121,7 @@ export default function Play() {
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
       />
+      <GameOverLost open={game.isOutOfLives} onNewGame={() => game.newGame(game.difficulty)} />
     </div>
   );
 }

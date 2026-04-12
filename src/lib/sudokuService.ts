@@ -34,6 +34,18 @@ export interface SubmitResult {
 
 const PENDING_KEY = "sudoku:pending_sync";
 
+/** Partidas completadas offline pendientes de envío al servidor. */
+export function getPendingSyncCount(): number {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (!raw) return 0;
+    const list = JSON.parse(raw) as unknown;
+    return Array.isArray(list) ? list.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function stashPending(payload: SubmitPayload): void {
   try {
     const raw = localStorage.getItem(PENDING_KEY);

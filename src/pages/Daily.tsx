@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { GameOverLost } from "@/components/GameOverLost";
 import { Navbar } from "@/components/Navbar";
 import { DailyCountdown } from "@/components/sudoku/DailyCountdown";
 import { GameControls } from "@/components/sudoku/GameControls";
@@ -9,13 +11,22 @@ import { NumPad } from "@/components/sudoku/NumPad";
 import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { Timer } from "@/components/sudoku/Timer";
+import { FEATURES } from "@/config";
 import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import type { DailyChallengeRow } from "@/hooks/useTodayDailyChallenge";
-import { useTodayDailyChallenge } from "@/hooks/useTodayDailyChallenge";
+import { utcToday, useTodayDailyChallenge } from "@/hooks/useTodayDailyChallenge";
+import { supabase } from "@/integrations/supabase/client";
 import type { Difficulty } from "@/lib/sudoku/types";
 import { toast } from "sonner";
+
+function fmtMs(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
 
 function DailyInner({ row }: { row: DailyChallengeRow }) {
   const { recordWin } = usePlayerProgress();
@@ -36,8 +47,28 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
     onWin: recordWin,
   });
 
+  const isTodayRow = row.challenge_date === utcToday();
+
+  const { data: bestDailyMs } = useQuery({
+    queryKey: ["sudoku-leaderboard-daily-top", row.challenge_date],
+    enabled: game.isCompleted && isTodayRow,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke<{ entries?: { time_ms: number }[] }>(
+        "sudoku-leaderboard",
+        { body: { type: "daily", limit: 1 } }
+      );
+      if (error) throw error;
+      return data?.entries?.[0]?.time_ms ?? null;
+    },
+  });
+
+  const compareLine =
+    game.isCompleted && bestDailyMs != null && isTodayRow
+      ? `Mejor del día: ${fmtMs(bestDailyMs)} · Tu tiempo: ${fmtMs(game.timerSeconds * 1000)}`
+      : undefined;
+
   useSudokuKeyboard({
-    enabled: !game.isCompleted && !game.isPaused,
+    enabled: !game.isCompleted && !game.isPaused && !game.isOutOfLives,
     onDigit: game.placeNumber,
     onErase: game.eraseCell,
     onUndo: game.undo,
@@ -70,12 +101,27 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
           <div>
             <h1 className="font-serif text-3xl text-gradient-gold">Puzzle del día</h1>
             <p className="capitalize text-muted-foreground">{dateLabel}</p>
+            {!isTodayRow && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Estás viendo un desafío histórico (UTC). El ranking en vivo corresponde al día actual.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               +{row.bonus_xp} XP bonus
             </span>
             <DailyCountdown />
+            <button
+              type="button"
+              className="text-xs text-primary underline-offset-2 hover:underline"
+              onClick={() => {
+                const url = `${window.location.origin}/daily?date=${row.challenge_date}`;
+                void navigator.clipboard.writeText(url).then(() => toast.message("Enlace copiado"));
+              }}
+            >
+              Copiar enlace del día
+            </button>
           </div>
         </div>
 
@@ -130,18 +176,28 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
+        compareLine={compareLine}
         footerExtra={
           <a href="#daily-leaderboard" className="text-center text-sm text-primary hover:underline">
             Ver ranking de hoy
           </a>
         }
       />
+      <GameOverLost open={game.isOutOfLives} onNewGame={() => game.newGame(game.difficulty)} />
     </>
   );
 }
 
 export default function Daily() {
-  const { data, isLoading, error, refetch, isFetching } = useTodayDailyChallenge();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get("date");
+  const invalidDate = Boolean(dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam));
+
+  const { data, isLoading, error, refetch, isFetching } = useTodayDailyChallenge(dateParam, !invalidDate);
+
+  if (!FEATURES.daily) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -150,6 +206,13 @@ export default function Daily() {
         <Link to="/" className="text-sm text-primary hover:underline">
           ← Volver al inicio
         </Link>
+
+        {invalidDate && (
+          <p className="text-sm text-destructive">
+            Fecha en la URL no válida. Usá el formato <code className="rounded bg-muted px-1">?date=YYYY-MM-DD</code>{" "}
+            en UTC.
+          </p>
+        )}
 
         {isLoading && (
           <div className="space-y-4">
@@ -172,10 +235,10 @@ export default function Daily() {
           </div>
         )}
 
-        {!isLoading && !error && !data && (
+        {!isLoading && !error && !data && !invalidDate && (
           <p className="text-muted-foreground">
-            El puzzle del día se prepara a medianoche UTC. Si acaba de cambiar el día en tu zona, esperá un
-            momento o volvé pronto.
+            El puzzle del día se prepara a medianoche <strong className="text-foreground">UTC</strong>. Si en tu
+            zona horaria todavía es “ayer”, el tablero nuevo aparece al cambiar de día en UTC.
           </p>
         )}
 

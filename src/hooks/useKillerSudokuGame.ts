@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { gameSounds } from "@/lib/gameSounds";
+import { vibrateShort } from "@/lib/haptics";
+import { isBoxFilled, isColFilled, isRowFilled } from "@/lib/sudoku/regionFilled";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateKillerPuzzle } from "@/lib/sudoku/killer-generator";
 import type { Cage } from "@/lib/sudoku/killer-types";
@@ -296,14 +299,37 @@ export function useKillerSudokuGame(opts: UseKillerOptions = {}) {
       if (n !== solution[row][col]) {
         nextMistakes = mistakes + 1;
         setMistakes(nextMistakes);
+        gameSounds.playError();
         toast.error("Ese número no va ahí");
         if (nextMistakes >= MAX_MISTAKES) {
           toast.message("Sin vidas");
         }
+      } else {
+        gameSounds.playCell();
       }
 
       const updated = updateAllErrors(next);
       setBoard(updated);
+
+      if (!isNotesMode) {
+        const br = Math.floor(row / 3);
+        const bc = Math.floor(col / 3);
+        const rowHadEmpty = board[row].some((c) => c.value == null);
+        const colHadEmpty = board.some((r) => r[col].value == null);
+        let boxHadEmpty = false;
+        for (let r = br * 3; r < br * 3 + 3; r++) {
+          for (let c = bc * 3; c < bc * 3 + 3; c++) {
+            if (board[r][c].value == null) {
+              boxHadEmpty = true;
+              break;
+            }
+          }
+          if (boxHadEmpty) break;
+        }
+        if (rowHadEmpty && isRowFilled(updated, row)) vibrateShort();
+        else if (colHadEmpty && isColFilled(updated, col)) vibrateShort();
+        else if (boxHadEmpty && isBoxFilled(updated, br, bc)) vibrateShort();
+      }
       setHistory((h) => [
         ...h,
         {
@@ -318,6 +344,7 @@ export function useKillerSudokuGame(opts: UseKillerOptions = {}) {
 
       if (checkKillerComplete(updated, solution) && nextMistakes < MAX_MISTAKES) {
         setIsCompleted(true);
+        gameSounds.playWin();
         const payload: WinPayload = {
           difficulty,
           variant: "killer",
@@ -436,5 +463,6 @@ export function useKillerSudokuGame(opts: UseKillerOptions = {}) {
     hintsRemaining: 0,
     hintLoading: false,
     useHint,
+    isOutOfLives: mistakes >= MAX_MISTAKES && !isCompleted,
   };
 }

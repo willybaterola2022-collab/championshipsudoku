@@ -391,5 +391,223 @@ Eso es todo. Después de eso, Sudoku está cerrado y arrancamos Wordle.
 
 ---
 
+## 2026-04-12 — Cursor — Perfil tras sync + tema neon
+
+- `submitFeedback`: tras partida persistida, `invalidateQueries` de `sudoku-session-difficulties`, `sudoku-user-achievement-keys`, `profile-sudoku-best` (evita desfase XP / logros vs servidor).
+- `queryClient` singleton en `src/queryClient.ts`.
+- Tema **neon**: `--sudoku-cell-given` / `--sudoku-cell-user` y notas (`.sudoku-notes`) más legibles.
+
+---
+
+## 2026-04-12 — Claude Code — MEJORAS: 4 features nuevas + 4 EFs + solver lógico + 530 puzzles
+
+### Resumen para Cursor: qué hay nuevo en backend y qué necesitás construir en frontend
+
+---
+
+### 1. DAILY TEMÁTICO POR DÍA DE SEMANA (ya activo)
+
+El cron `sudoku-daily-puzzle-midnight` ahora selecciona dificultad según el día:
+
+| Día | Dificultad | Bonus XP |
+|---|---|---|
+| Lunes | Fácil | 30 |
+| Martes | Medio | 50 |
+| Miércoles | Medio | 50 |
+| Jueves | Difícil | 80 |
+| Viernes | Experto | 120 |
+| Sábado | Difícil | 80 |
+| Domingo | Diabólico | 200 |
+
+**Frontend**: en `/daily`, mostrar el nombre del día y la dificultad esperada ("Viernes — Experto"). Los datos ya vienen en `sudoku_daily_challenges.difficulty` y `.bonus_xp`.
+
+---
+
+### 2. HINT COACH 3 NIVELES (EF actualizada, ya deployada)
+
+`sudoku-hint` ahora acepta un campo `level` en el body:
+
+```ts
+// Level 1: solo zona (sin valor, sin técnica)
+{ board, row, col, solution, level: 1 }
+→ { level: 1, zone: "Mirá la fila 3", technique: null, value: null, explanation: null }
+
+// Level 2: técnica (sin valor)
+{ board, row, col, solution, level: 2 }
+→ { level: 2, zone: null, technique: "Single desnudo", value: null, explanation: "Es un single desnudo: eliminá..." }
+
+// Level 3: respuesta completa + AI (default, backwards compatible)
+{ board, row, col, solution, level: 3 }
+→ { level: 3, zone: null, technique: "Single desnudo", value: 7, explanation: "Por single desnudo..." }
+```
+
+**Frontend**: cambiar `GameControls` para que el botón Hint tenga 3 estados:
+- Primer click → level 1 (zona)
+- Segundo click (misma celda) → level 2 (técnica)
+- Tercer click → level 3 (respuesta)
+- O bien: un menú desplegable con las 3 opciones
+
+Cada nivel consume 1 uso de hint (máximo 3 por partida sigue igual). El usuario elige cuánta ayuda quiere.
+
+---
+
+### 3. SOLVER LÓGICO (nuevo módulo, en tu zona compartida)
+
+`src/lib/sudoku/solver.ts` — módulo puro (sin React, sin Supabase) que resuelve puzzles usando técnicas humanas:
+
+- Naked singles, hidden singles
+- Naked pairs, pointing pairs
+- X-Wing
+- Detecta qué técnicas fueron necesarias
+- Devuelve `{ solved, techniquesUsed, maxDifficulty, difficultyLabel, stepsCount }`
+
+**Frontend**: podés usarlo para:
+- Post-game: "Este puzzle requirió X-Wing para resolverse"
+- Stats: "Resolviste un puzzle de nivel 4 (X-Wing)"
+- Mostrar en el selector de dificultad: info sobre qué técnicas se necesitan
+
+**Importar**: `import { solvePuzzleLogically, TECHNIQUE_LABELS } from "@/lib/sudoku/solver";`
+
+---
+
+### 4. POST-GAME ANALYSIS (nueva EF, ya deployada)
+
+`sudoku-post-game-analysis` — se llama internamente desde `sudoku-save-game` (fire-and-forget). Calcula:
+
+```ts
+// Response:
+{
+  percentile: 78,              // "Más rápido que el 78% de los jugadores"
+  avg_time_ms: 342000,         // Tiempo promedio en esta dificultad
+  personal_best_ms: 215000,    // Tu récord personal
+  is_personal_best: true,      // ¿Nuevo récord?
+  total_sessions_difficulty: 145,
+  user_total_difficulty: 12,
+  faster_than_percent: 78
+}
+```
+
+**Frontend**: en `GameResult.tsx` mostrar:
+- "Más rápido que el 78% de los jugadores"
+- "Tiempo promedio: 5:42" vs "Tu tiempo: 4:07"
+- Badge "Nuevo récord personal" si `is_personal_best`
+
+**Cómo obtener los datos**: `sudoku-save-game` ahora chain-a `sudoku-post-game-analysis` internamente. El response de save-game incluirá los datos de analysis. Si no los incluye aún (depende de si actualicé save-game), podés llamar directo con `supabase.functions.invoke('sudoku-post-game-analysis', ...)` — pero eso requiere `x-internal-secret`. Alternativa: leer `sudoku_game_sessions.percentile` después del submit.
+
+---
+
+### 5. WEEKLY MISSIONS (tablas + cron + EF, todo ya activo)
+
+**Tablas nuevas**:
+- `sudoku_weekly_missions` — 3 misiones por semana (rotan lunes 00:05 UTC)
+- `sudoku_mission_progress` — progreso por usuario por misión
+
+**Misiones actuales** (seeded para esta semana):
+1. "Maratón semanal" — 5 puzzles, +100 XP
+2. "Perfección" — 1 puzzle sin errores, +80 XP
+3. "Constancia diaria" — daily 5 de 7 días, +150 XP
+
+**EF nueva**: `sudoku-claim-mission` — JWT required, body `{ mission_id }`. Devuelve `{ claimed, xp_reward }`.
+
+**Frontend**: necesitás crear:
+- `src/hooks/useWeeklyMissions.ts` — fetch `sudoku_weekly_missions` de esta semana + `sudoku_mission_progress` del usuario
+- `src/components/sudoku/WeeklyMissions.tsx` — 3 cards con progreso (barra %), CTA "Reclamar" cuando completa
+- Agregar en Landing o Profile debajo del XP bar
+- Actualizar progreso de misiones cuando el usuario completa un puzzle (incrementar `current_value` en `sudoku_mission_progress`)
+
+**Query missions**:
+```ts
+const weekStart = getMonday(new Date()).toISOString().slice(0, 10);
+const { data: missions } = await supabase
+  .from("sudoku_weekly_missions")
+  .select("*, sudoku_mission_progress!inner(current_value, completed, claimed)")
+  .eq("week_start", weekStart)
+  .eq("sudoku_mission_progress.user_id", user.id);
+```
+
+---
+
+### 6. SPEED MODE (tablas + cron + EFs, todo ya activo)
+
+**Tablas nuevas**:
+- `sudoku_speed_challenges` — 1 puzzle compartido cada 6 horas
+- `sudoku_speed_completions` — tiempos de cada jugador
+
+**Crons**: `sudoku-speed-challenge-6h` a `0 */6 * * *` — crea challenge automáticamente.
+
+**RPCs**: `get_current_speed_challenge()` y `get_speed_leaderboard(challenge_id, limit)`.
+
+**EF nueva**: `sudoku-speed-submit` — JWT, body `{ challenge_id, time_ms, errors }`. Devuelve `{ rank, total, time_ms }`.
+
+**Frontend**: necesitás crear:
+- `src/pages/Speed.tsx` — página nueva en ruta `/speed`
+- `src/hooks/useSpeedChallenge.ts` — fetch `rpc('get_current_speed_challenge')` + countdown hasta `ends_at`
+- Tablero igual que `/play` pero con:
+  - Puzzle fijo (del speed challenge, no generado)
+  - Timer countdown mostrando tiempo restante del challenge
+  - Al completar: submit a `sudoku-speed-submit` y mostrar rank
+  - Leaderboard del challenge actual debajo
+- Navbar: agregar link "Speed" entre "Diario" y "Perfil"
+
+**Query**:
+```ts
+const { data } = await supabase.rpc("get_current_speed_challenge");
+// data: { challenge_id, puzzle_id, puzzle, solution, difficulty, starts_at, ends_at, completions }
+```
+
+---
+
+### 7. PUZZLES (530 total)
+
+| Variante | Cantidad |
+|---|---|
+| Classic | 500 (100 por dificultad) |
+| Killer | 30 (6 por dificultad) |
+| **Total** | **530** |
+
+Columnas nuevas en `sudoku_puzzles`: `techniques_required`, `max_technique_level`, `estimated_time_minutes` (vacías por ahora — se llenarán con el solver lógico cuando Cursor quiera clasificar puzzles).
+
+---
+
+### 8. EDGE FUNCTIONS ACTUALIZADAS (12 total)
+
+| EF | Estado | Cambio |
+|---|---|---|
+| sudoku-hint | ✅ Actualizada | 3 niveles (level 1/2/3) |
+| sudoku-post-game-analysis | ✅ NUEVA | Percentil + personal best |
+| sudoku-speed-submit | ✅ NUEVA | Submit speed challenge |
+| sudoku-claim-mission | ✅ NUEVA | Claim weekly mission XP |
+| Las 8 originales | ✅ Sin cambios | save, validate, grant-xp, daily-cron, daily-submit, leaderboard, health-check |
+
+---
+
+### 9. CRONS ACTIVOS (4 total)
+
+| Cron | Schedule | Qué hace |
+|---|---|---|
+| sudoku-daily-puzzle-midnight | `0 0 * * *` | Daily por día de semana (lun=fácil, dom=diabólico) |
+| sudoku-speed-challenge-6h | `0 */6 * * *` | Speed challenge cada 6h |
+| sudoku-weekly-missions | `5 0 * * 1` | 3 misiones nuevas cada lunes |
+| *(chess crons existentes)* | *(sin cambios)* | |
+
+---
+
+### RESUMEN PARA CURSOR — Qué crear
+
+| Prioridad | Componente/Página | Dificultad |
+|---|---|---|
+| 1 | **Hint 3 niveles** en GameControls (cambiar botón hint a multi-nivel) | Fácil |
+| 2 | **Post-game stats** en GameResult (percentil, PB, tiempo promedio) | Fácil |
+| 3 | **Weekly Missions** componente + hook (3 cards con progreso) | Medio |
+| 4 | **Speed Mode** página `/speed` + hook + leaderboard | Medio |
+| 5 | **Daily temático** mostrar día + dificultad en `/daily` | Trivial |
+| 6 | **Pencil marks automáticos** botón en GameControls (puro frontend) | Fácil |
+| 7 | **Calendario actividad** (estilo GitHub graph, 30 días) | Medio |
+| 8 | **Stats gráficos** en Profile con Recharts | Medio |
+
+Todo el backend está listo y desplegado. Solo falta frontend.
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 

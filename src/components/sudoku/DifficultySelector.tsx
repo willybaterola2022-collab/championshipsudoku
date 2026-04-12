@@ -12,7 +12,6 @@ interface DifficultySelectorProps {
 const ORDER: Difficulty[] = ["easy", "medium", "hard", "expert", "fiendish"];
 
 export function DifficultySelector({ value, onChange, disabled, className }: DifficultySelectorProps) {
-  const hint = DIFFICULTY_CONFIG[value].hint;
   return (
     <div className={cn("relative", className)}>
       <select
@@ -21,10 +20,14 @@ export function DifficultySelector({ value, onChange, disabled, className }: Dif
         disabled={disabled}
         onChange={(e) => onChange(e.target.value as Difficulty)}
         aria-label="Dificultad"
-        title={hint}
+        title={`${DIFFICULTY_CONFIG[value].hint} · ~${DIFFICULTY_CONFIG[value].estimatedMinutes} · ${DIFFICULTY_CONFIG[value].audience}`}
       >
         {ORDER.map((d) => (
-          <option key={d} value={d} title={DIFFICULTY_CONFIG[d].hint}>
+          <option
+            key={d}
+            value={d}
+            title={`${DIFFICULTY_CONFIG[d].hint} · ~${DIFFICULTY_CONFIG[d].estimatedMinutes} · ${DIFFICULTY_CONFIG[d].audience}`}
+          >
             {DIFFICULTY_CONFIG[d].label}
           </option>
         ))}

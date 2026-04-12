@@ -11,6 +11,8 @@ interface GameResultProps {
   onShare?: () => void;
   /** Contenido opcional bajo el resumen (p. ej. enlace al ranking diario). */
   footerExtra?: ReactNode;
+  /** Línea opcional (p. ej. comparación con mejor tiempo del día). */
+  compareLine?: string;
 }
 
 function fmt(ms: number) {
@@ -66,6 +68,11 @@ export function GameResult({
               <dd className="tabular-nums text-foreground">{hintsUsed}</dd>
             </div>
           </dl>
+          {compareLine ? (
+            <p className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-center text-sm text-muted-foreground">
+              {compareLine}
+            </p>
+          ) : null}
           {footerExtra ? <div className="mt-6">{footerExtra}</div> : null}
           <div className="mt-8 flex flex-wrap gap-3">
             {onShare && (

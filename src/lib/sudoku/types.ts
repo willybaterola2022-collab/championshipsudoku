@@ -35,6 +35,10 @@ export interface DifficultyConfig {
   baseXp: number;
   /** Una línea para tooltip / accesibilidad del selector */
   hint: string;
+  /** Rango orientativo de tiempo por partida */
+  estimatedMinutes: string;
+  /** Perfil de jugador sugerido */
+  audience: string;
 }
 
 export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
@@ -44,6 +48,8 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
     givenMax: 40,
     baseXp: 30,
     hint: "Muchas celdas resueltas al inicio; ideal para practicar reglas.",
+    estimatedMinutes: "5–15 min",
+    audience: "Principiante",
   },
   medium: {
     label: "Medio",
@@ -51,6 +57,8 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
     givenMax: 34,
     baseXp: 50,
     hint: "Equilibrio entre pistas y deducción.",
+    estimatedMinutes: "10–25 min",
+    audience: "Intermedio",
   },
   hard: {
     label: "Difícil",
@@ -58,6 +66,8 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
     givenMax: 27,
     baseXp: 80,
     hint: "Menos pistas; hace falta seguir cadenas de deducción.",
+    estimatedMinutes: "20–45 min",
+    audience: "Avanzado",
   },
   expert: {
     label: "Experto",
@@ -65,6 +75,8 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
     givenMax: 23,
     baseXp: 120,
     hint: "Pocas pistas; técnicas avanzadas (cadenas, sets).",
+    estimatedMinutes: "30–60 min",
+    audience: "Experto",
   },
   fiendish: {
     label: "Diabólico",
@@ -72,6 +84,8 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
     givenMax: 21,
     baseXp: 200,
     hint: "Mínimo de pistas; solo para muy experimentados.",
+    estimatedMinutes: "45 min–2 h",
+    audience: "Muy experto",
   },
 };
 

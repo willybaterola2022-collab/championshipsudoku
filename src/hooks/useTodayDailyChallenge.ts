@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Difficulty } from "@/lib/sudoku/types";
@@ -16,14 +17,19 @@ export interface DailyChallengeRow {
   };
 }
 
-function utcToday(): string {
+export function utcToday(): string {
   const n = new Date();
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())).toISOString().slice(0, 10);
 }
 
-export function useTodayDailyChallenge() {
-  const day = utcToday();
+/** `dateOverride` = `YYYY-MM-DD` en UTC para enlaces compartidos (`/daily?date=…`). */
+export function useTodayDailyChallenge(dateOverride?: string | null, queryEnabled = true) {
+  const day = useMemo(() => {
+    if (dateOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride)) return dateOverride;
+    return utcToday();
+  }, [dateOverride]);
   return useQuery({
+    enabled: queryEnabled,
     queryKey: ["sudoku-daily-challenge", day],
     retry: 1,
     queryFn: async (): Promise<DailyChallengeRow | null> => {

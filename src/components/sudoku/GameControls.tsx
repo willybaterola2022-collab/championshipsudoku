@@ -11,6 +11,8 @@ interface GameControlsProps {
   hintsRemaining: number;
   hintLoading?: boolean;
   showHints?: boolean;
+  /** Si no hay pistas (p. ej. Killer), mostrar bombilla deshabilitada con este texto */
+  hintUnavailableReason?: string;
   disabled?: boolean;
 }
 
@@ -46,7 +48,7 @@ export function GameControls({
       >
         <Pencil className="h-7 w-7" />
       </button>
-      {showHints && (
+      {showHints ? (
         <button
           type="button"
           className={cn(btn)}
@@ -61,7 +63,17 @@ export function GameControls({
             </span>
           )}
         </button>
-      )}
+      ) : hintUnavailableReason ? (
+        <button
+          type="button"
+          className={cn(btn, "cursor-not-allowed opacity-50")}
+          disabled
+          title={hintUnavailableReason}
+          aria-label={hintUnavailableReason}
+        >
+          <Lightbulb className="h-7 w-7" />
+        </button>
+      ) : null}
     </div>
   );
 }

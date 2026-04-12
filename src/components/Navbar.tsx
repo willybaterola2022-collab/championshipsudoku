@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
+import { SoundToggle } from "@/components/SoundToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { withAppUtm } from "@/lib/utm";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,8 @@ export function Navbar() {
         <Link to="/" className="font-serif text-lg font-semibold tracking-tight text-primary">
           Casual Games
         </Link>
+        <div className="flex items-center gap-2">
+          <SoundToggle />
         <nav className="flex flex-wrap items-center gap-1 rounded-full border border-border/50 bg-muted/30 p-1 text-sm">
           <NavLink
             to="/"
@@ -82,6 +85,7 @@ export function Navbar() {
             </Link>
           )}
         </nav>
+        </div>
       </div>
     </header>
   );

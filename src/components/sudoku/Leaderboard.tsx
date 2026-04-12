@@ -26,6 +26,8 @@ interface LeaderboardProps {
   type: LeaderboardType;
   limit?: number;
   className?: string;
+  /** Mensaje cuando no hay filas (por defecto según tipo). */
+  emptyMessage?: string;
 }
 
 export function Leaderboard({ type, limit = 20, className }: LeaderboardProps) {
@@ -80,9 +82,13 @@ export function Leaderboard({ type, limit = 20, className }: LeaderboardProps) {
   }
 
   if (entries.length === 0) {
+    const defaultEmpty =
+      type === "daily"
+        ? "Sé el primero en completar el puzzle de hoy — la tabla se llena cuando hay resultados."
+        : "Aún no hay datos de ranking global.";
     return (
       <p className="text-center text-sm text-muted-foreground">
-        Sé el primero en completar el puzzle de hoy.
+        {emptyMessage ?? defaultEmpty}
       </p>
     );
   }
