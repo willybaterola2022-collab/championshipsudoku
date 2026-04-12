@@ -24,9 +24,9 @@ const ACH_KEYS = [
 
 export default function Profile() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
-  const { progress, rank, isServerProgress } = usePlayerProgress();
+  const { progress, rank, isServerProgress, sessionDifficultyError } = usePlayerProgress();
 
-  const { data: unlockedKeys } = useQuery({
+  const { data: unlockedKeys, isFetched: achievementsFetched } = useQuery({
     queryKey: ["sudoku-user-achievement-keys", user?.id],
     enabled: Boolean(user),
     queryFn: async () => {
@@ -61,7 +61,13 @@ export default function Profile() {
   });
 
   if (!authLoading && !user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ message: "Iniciá sesión para ver tu progreso." }}
+      />
+    );
   }
 
   if (authLoading || !user) {
@@ -75,10 +81,23 @@ export default function Profile() {
   const displayName =
     profile?.display_name || profile?.username || user.email?.split("@")[0] || "Jugador";
 
+  const totalSolved = isServerProgress
+    ? (profile?.sudoku_puzzles_solved ?? 0)
+    : Object.values(progress.puzzlesSolved).reduce((a, b) => a + b, 0);
+
+  const allAchievementsLocked =
+    achievementsFetched && unlockedKeys !== undefined && unlockedKeys.size === 0;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <main className="container max-w-3xl space-y-8 px-4 py-8">
+        {sessionDifficultyError && (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            No pudimos cargar el desglose por dificultad. El resto del perfil sigue disponible.
+          </p>
+        )}
+
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted">
             {profile?.avatar_url ? (
@@ -104,6 +123,12 @@ export default function Profile() {
         </div>
 
         <XPBar progress={progress} rank={rank} className="max-w-md" />
+
+        {totalSolved === 0 && (
+          <p className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Jugá tu primer sudoku para ver estadísticas acá.
+          </p>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="glass rounded-xl border border-border p-4">
@@ -150,6 +175,11 @@ export default function Profile() {
 
         <div>
           <h2 className="mb-3 font-serif text-xl text-primary">Logros</h2>
+          {allAchievementsLocked && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              Completá tu primer sudoku para desbloquear logros.
+            </p>
+          )}
           <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
             {ACH_KEYS.map((key) => {
               const unlocked = unlockedKeys?.has(key) ?? false;

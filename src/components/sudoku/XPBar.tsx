@@ -9,7 +9,9 @@ interface XPBarProps {
 }
 
 export function XPBar({ progress, rank, className }: XPBarProps) {
-  const pct = Math.min(100, Math.round((progress.xp / Math.max(1, progress.xpToNext)) * 100));
+  const xp = Number.isFinite(progress.xp) ? progress.xp : 0;
+  const next = Number.isFinite(progress.xpToNext) && progress.xpToNext > 0 ? progress.xpToNext : 1;
+  const pct = Math.min(100, Math.round((xp / next) * 100));
   return (
     <div className={cn("min-w-[140px] space-y-1", className)}>
       <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
@@ -17,7 +19,7 @@ export function XPBar({ progress, rank, className }: XPBarProps) {
           Nv. {progress.level} — {rank}
         </span>
         <span className="tabular-nums">
-          {progress.xp}/{progress.xpToNext} XP
+          {xp}/{next} XP
         </span>
       </div>
       <div className="h-1 w-full overflow-hidden rounded-full bg-muted">

@@ -40,6 +40,8 @@ export function Navbar() {
           {CHESS_URL ? (
             <a
               href={CHESS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
             >
               Ajedrez

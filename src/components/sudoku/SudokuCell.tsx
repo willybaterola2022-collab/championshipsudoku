@@ -44,6 +44,7 @@ export function SudokuCell({
       style={{ animationDelay: `${staggerDelayMs}ms` }}
       className={cn(
         "relative flex aspect-square min-h-0 min-w-0 items-center justify-center border border-[hsl(var(--sudoku-border-thin))] text-lg font-semibold transition-colors sm:text-xl",
+        "outline-none focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-[hsl(var(--sudoku-cell-selected))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sudoku-border-thin))]",
         thickRight && "border-r-[3px] border-r-[hsl(var(--sudoku-border-thick))]",
         thickBottom && "border-b-[3px] border-b-[hsl(var(--sudoku-border-thick))]",
         cell.isError && "animate-cell-error bg-[hsla(var(--sudoku-cell-error)/0.35)] text-destructive",

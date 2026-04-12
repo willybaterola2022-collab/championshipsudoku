@@ -246,5 +246,72 @@ Cuando Barbara dé green-light:
 
 ---
 
+## 2026-04-12 — Cursor — Sprint A+B: QA + Pulido (frontend)
+
+**Alcance**: `src/pages/**`, `src/components/**`, `src/hooks/**`, `src/App.tsx`, `src/index.css` (sin tocar `sudokuService`, `AuthContext`, `lib/sudoku/**`).
+
+**QA checklist (15 ítems)**: Verificación lógica en código + `https://championshipsudoku.vercel.app` responde HTTP 200. Ítems que requieren navegador manual (consola sin errores, PWA install prompt, Network tab hint 200): **Barbara / sesión manual** para marcar 15/15 definitivo. Backend ya documentado en entradas previas (Google OAuth redirects en dashboard; `sudoku-daily-cron` 403 con secret manual — Claude).
+
+**Fixes aplicados**:
+- **Pistas (`useSudokuGame`)**: `toast` si la EF `sudoku-hint` devuelve error; `catch` si la llamada falla; sin toast duplicado “Pista aplicada” cuando ya se informó fallback local.
+- **Daily**: copy si no hay fila para el día (medianoche UTC); botón **Reintentar** + `refetch`; `retry: 1` en `useTodayDailyChallenge`.
+- **Leaderboard**: `retry` extra si el mensaje sugiere rate limit; UI de error con **Reintentar** (`refetch`).
+- **Profile**: redirect a `/login` con `state.message` (“Iniciá sesión…”); banner de error si falla query de dificultades (`sessionDifficultyError`); vacío “primer sudoku” y logros bloqueados con copy acorde; `usePlayerProgress` expone `sessionDifficultyError`.
+- **Login**: muestra mensaje desde `location.state` cuando viene del perfil.
+- **XPBar**: valores seguros si XP / `xpToNext` no son finitos.
+- **SudokuCell**: `focus-visible` para teclado.
+- **Navbar**: link Ajedrez con `target="_blank"` cuando hay `VITE_CHESS_APP_URL`.
+- **App**: rutas con `React.lazy` + `Suspense` (code-split) para páginas pesadas.
+
+**Pendientes backend** (sin cambio en este sprint): OAuth Google hasta que redirect URLs estén en Supabase; 403 manual en `sudoku-daily-cron` EF — ver entrada Claude 2026-04-12.
+
+**Build local**: `npm run typecheck` y `npm run build` OK tras cambios.
+
+---
+
+## 2026-04-12 — Cursor — Sprint C: Hub Casual Games (repo `casualgames-hub`)
+
+**Repo**: `/Users/barbara/Desktop/SKYNET/P004-CASUAL GAMES/casualgames-hub` · **Live**: `https://casualgames-hub.vercel.app`
+
+**Hecho (actualizado)**:
+- Rutas: `/`, `/juegos`, `/sobre`, `/privacidad` (`react-router-dom`); SPA rewrite en `vercel.json`.
+- Waitlist: **EFs reales** `hub-waitlist-subscribe` + `hub-waitlist-count` (headers `apikey: VITE_SUPABASE_ANON_KEY`); URLs base desde `VITE_SUPABASE_URL` + `HUB_FUNCTIONS` en `src/config.ts`.
+- Contador social si `total > 10`; página **Privacidad** (lista de espera, sin cifras inventadas).
+- README del hub con env vars y flujo local; `.env.example` con `VITE_SUPABASE_URL` + anon key.
+- Footer usa `GAME_URLS` desde `config.ts`.
+
+---
+
+## 2026-04-13 — Cursor — Hub: páginas internas + SEO mínimo
+
+**Repo**: `casualgames-hub`
+
+- Componente `InnerPageHeader`; `/juegos`, `/sobre`, `/privacidad` alineados con la estética de la home.
+- `/juegos`: filtros con mayor contraste; layout acorde a la landing.
+- `/sobre`: bloque destacado + CTAs externos a Chess/Sudoku.
+- `404`: footer + fondo gaming + enlaces a inicio y catálogo.
+- `public/robots.txt` y `public/sitemap.xml` (dominio `casualgames-hub.vercel.app`). README del hub actualizado.
+
+---
+
+## 2026-04-13 — Cursor — Pasos Cursor: verify live + a11y + QA doc
+
+**1 · Verify URLs en vivo (curl)**  
+`https://casualgames-hub.vercel.app/` (200), `/juegos` (200), SPA 404 route (200 esperado).  
+`https://championshipsudoku.vercel.app/` (200).
+
+**2 · Hub — slot visual honesto**  
+`HeroSpotlight`: bloque `data-placeholder` “Próximamente: trailer del hub” (sin video falso).
+
+**3 · Sudoku — QA checklist**  
+Nuevo `docs/QA_LIVE_CHECKLIST.md` con tabla 15 ítems + columna owner; cierre manual **Barbara**.
+
+**4 · A11y — skip link**  
+`SkipToContent` + `#main-content` en hub y Sudoku; clase `.skip-link` en CSS.
+
+**Git:** commit + push pendiente en máquina local si hay cambios sin subir.
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 

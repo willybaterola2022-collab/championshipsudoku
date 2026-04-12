@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ type FormData = z.infer<typeof schema>;
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const banner = (location.state as { message?: string } | null)?.message;
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
 
@@ -72,6 +74,12 @@ export default function Login() {
           <h1 className="mt-2 font-serif text-3xl text-gradient-gold">Championship Sudoku</h1>
           <p className="mt-1 text-sm text-muted-foreground">Iniciá sesión para guardar progreso en la nube</p>
         </div>
+
+        {banner && (
+          <p className="rounded-lg border border-primary/35 bg-primary/10 px-3 py-2 text-center text-sm text-foreground">
+            {banner}
+          </p>
+        )}
 
         <button
           type="button"

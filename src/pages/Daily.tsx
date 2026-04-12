@@ -136,7 +136,7 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
 }
 
 export default function Daily() {
-  const { data, isLoading, error } = useTodayDailyChallenge();
+  const { data, isLoading, error, refetch, isFetching } = useTodayDailyChallenge();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -154,14 +154,23 @@ export default function Daily() {
         )}
 
         {error && (
-          <p className="text-destructive">
-            No se pudo cargar el puzzle del día. Intentá más tarde.
-          </p>
+          <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-destructive">No se pudo cargar el puzzle del día. Intentá de nuevo.</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="rounded-full border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+            >
+              {isFetching ? "Cargando…" : "Reintentar"}
+            </button>
+          </div>
         )}
 
         {!isLoading && !error && !data && (
           <p className="text-muted-foreground">
-            Todavía no hay puzzle del día para esta fecha. Volvé más tarde.
+            El puzzle del día se prepara a medianoche UTC. Si acaba de cambiar el día en tu zona, esperá un
+            momento o volvé pronto.
           </p>
         )}
 

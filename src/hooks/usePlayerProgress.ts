@@ -133,7 +133,7 @@ export function usePlayerProgress() {
     save(localProgress);
   }, [user, localProgress]);
 
-  const { data: sessionDifficulty } = useQuery({
+  const { data: sessionDifficulty, isError: sessionDifficultyError } = useQuery({
     queryKey: ["sudoku-session-difficulties", user?.id],
     enabled: Boolean(user),
     queryFn: async () => {
@@ -263,5 +263,6 @@ export function usePlayerProgress() {
     recordWin,
     isServerProgress: Boolean(user && profile),
     authLoading,
+    sessionDifficultyError,
   };
 }

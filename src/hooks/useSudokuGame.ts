@@ -419,6 +419,9 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
           solution,
         },
       });
+      if (error) {
+        toast.error("No pudimos obtener la pista del servidor. Aplicamos una pista local.");
+      }
       if (!error && data?.value != null) {
         if (data.explanation) toast.message("Pista", { description: data.explanation });
         const next = cloneBoard(board);
@@ -484,7 +487,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
             newNotes: {},
           },
         ]);
-        toast.message("Pista aplicada");
+        if (!error) toast.message("Pista aplicada");
         if (checkCompletion(updated)) {
           setIsCompleted(true);
           const payload: WinPayload = {
@@ -512,6 +515,8 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
           })();
         }
       }
+    } catch {
+      toast.error("No pudimos obtener la pista. Intentá de nuevo.");
     } finally {
       setHintLoading(false);
     }

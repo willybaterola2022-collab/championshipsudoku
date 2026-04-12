@@ -5,7 +5,8 @@ Sudoku clásico y Killer con pistas de IA, puzzle diario, XP, rachas y leaderboa
 - **Stack**: React 18 + Vite + TypeScript + Tailwind + shadcn/ui
 - **Backend**: Supabase (compartido con Championship Chess, ref `ahsullbcdrekmribkcbm`)
 - **Deploy**: Vercel (auto en push a `main`)
-- **Live**: `championshipsudoku.vercel.app` (pendiente de creación)
+- **Live**: [championshipsudoku.vercel.app](https://championshipsudoku.vercel.app)
+- **Repo**: [willybaterola2022-collab/championshipsudoku](https://github.com/willybaterola2022-collab/championshipsudoku)
 
 ## Quick start
 

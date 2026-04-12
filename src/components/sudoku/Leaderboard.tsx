@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Award } from "lucide-react";
+import { Award, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,13 @@ interface LeaderboardProps {
 export function Leaderboard({ type, limit = 20, className }: LeaderboardProps) {
   const { user } = useAuth();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["sudoku-leaderboard", type, limit],
+    retry: (failureCount, err) => {
+      const msg = String(err?.message ?? err ?? "");
+      if (failureCount < 2 && (msg.includes("429") || msg.toLowerCase().includes("rate"))) return true;
+      return failureCount < 1;
+    },
     queryFn: async () => {
       const { data: res, error: err } = await supabase.functions.invoke<{
         entries?: Entry[];
@@ -59,9 +64,18 @@ export function Leaderboard({ type, limit = 20, className }: LeaderboardProps) {
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
-        No se pudo cargar el ranking. Intentá más tarde.
-      </p>
+      <div className="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
+        <p className="text-sm text-destructive">No se pudo cargar el ranking. Intentá de nuevo.</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} aria-hidden />
+          Reintentar
+        </button>
+      </div>
     );
   }
 

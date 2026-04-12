@@ -25,6 +25,7 @@ export function useTodayDailyChallenge() {
   const day = utcToday();
   return useQuery({
     queryKey: ["sudoku-daily-challenge", day],
+    retry: 1,
     queryFn: async (): Promise<DailyChallengeRow | null> => {
       const { data: ch, error: e1 } = await supabase
         .from("sudoku_daily_challenges")

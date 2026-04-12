@@ -1,16 +1,27 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
+import { SkipToContent } from "@/components/SkipToContent";
 import { useLoginSync } from "@/hooks/useLoginSync";
-import Daily from "@/pages/Daily";
-import Landing from "@/pages/Landing";
-import Login from "@/pages/Login";
-import Play from "@/pages/Play";
-import PlayKiller from "@/pages/PlayKiller";
-import Profile from "@/pages/Profile";
+
+const Landing = lazy(() => import("@/pages/Landing"));
+const Play = lazy(() => import("@/pages/Play"));
+const PlayKiller = lazy(() => import("@/pages/PlayKiller"));
+const Daily = lazy(() => import("@/pages/Daily"));
+const Login = lazy(() => import("@/pages/Login"));
+const Profile = lazy(() => import("@/pages/Profile"));
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <p>Cargando…</p>
+    </div>
+  );
+}
 
 function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-      <div className="text-center space-y-2">
+      <div className="space-y-2 text-center">
         <p className="font-serif text-6xl text-primary">404</p>
         <p className="text-muted-foreground">Página no encontrada</p>
       </div>
@@ -21,18 +32,27 @@ function NotFound() {
 function AppRoutes() {
   useLoginSync();
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/play" element={<Play />} />
-      <Route path="/play/killer" element={<PlayKiller />} />
-      <Route path="/daily" element={<Daily />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/play" element={<Play />} />
+        <Route path="/play/killer" element={<PlayKiller />} />
+        <Route path="/daily" element={<Daily />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
 export default function App() {
-  return <AppRoutes />;
+  return (
+    <>
+      <SkipToContent />
+      <div id="main-content" tabIndex={-1} className="outline-none">
+        <AppRoutes />
+      </div>
+    </>
+  );
 }
