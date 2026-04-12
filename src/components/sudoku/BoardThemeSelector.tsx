@@ -44,10 +44,10 @@ export function BoardThemeSelector({ value, onChange, className }: BoardThemeSel
           type="button"
           onClick={() => onChange(t.id)}
           className={cn(
-            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            "rounded-full border px-4 py-2 text-xs font-medium transition-all",
             value === t.id
-              ? "border-primary bg-primary/15 text-primary"
-              : "border-border/60 text-muted-foreground hover:border-primary/40"
+              ? "border-primary bg-primary/15 text-primary shadow-sm shadow-primary/10"
+              : "border-border/60 text-muted-foreground hover:border-primary/40 hover:bg-muted/30"
           )}
         >
           {t.label}
