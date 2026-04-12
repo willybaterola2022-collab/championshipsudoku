@@ -1,222 +1,361 @@
-# CURSOR — PRÓXIMAS TAREAS (leer PRIMERO)
+# CURSOR — SPRINT COMPLETO DE PROFUNDIDAD (NO NEGOCIABLE)
 
-> Este archivo reemplaza la necesidad de leer todo COORDINATION.md.
-> Claude Code actualizó el backend. Acá está lo que falta en frontend.
-> **No leas COORDINATION.md entero** — leé solo esto.
+> Las tareas 1-5 anteriores ya están implementadas. Este archivo las reemplaza.
+> Claude Code ejecutó TODO el backend. Acá está lo que falta en frontend.
+> **Hacé todo en orden. Sin saltar. Sin negociar tiempos.**
 
-## Estado: backend LISTO, frontend PENDIENTE
+## Estado backend (actualizado)
 
-Claude Code desplegó 12 Edge Functions, 4 crons, 530 puzzles, tablas para missions y speed mode. Todo live en Supabase. **Solo falta que vos construyas los componentes y hooks que lo consumen.**
-
----
-
-## TAREA 1 — Hint 3 niveles (PRIORIDAD ALTA)
-
-La EF `sudoku-hint` ahora acepta `level: 1 | 2 | 3` en el body.
-
-**Cambio en `useSudokuGame.ts`** (línea ~446 aprox donde llama `sudoku-hint`):
-
-```ts
-// ANTES:
-const { data } = await supabase.functions.invoke("sudoku-hint", {
-  body: { board, row, col, solution },
-});
-
-// DESPUÉS: agregar level al body
-const { data } = await supabase.functions.invoke("sudoku-hint", {
-  body: { board, row, col, solution, level: hintLevel },
-});
-```
-
-**Cambio en `GameControls.tsx`**: el botón Hint necesita 3 estados. Opción simple:
-
-- Primer click → `level: 1` → muestra toast con `data.zone` ("Mirá la fila 3")
-- Si clickea de nuevo la misma celda → `level: 2` → muestra toast con `data.explanation` ("Es un single desnudo...")
-- Tercer click → `level: 3` → coloca el número + muestra explicación IA
-
-Cada nivel consume 1 uso de hint. El response cambia según level:
-
-```ts
-// level 1: { level: 1, zone: "Mirá la fila 3", value: null }
-// level 2: { level: 2, technique: "Single desnudo", explanation: "...", value: null }
-// level 3: { level: 3, technique: "Single desnudo", value: 7, explanation: "..." }
-```
-
-Solo colocar el número cuando `data.value !== null` (level 3).
+- 610 puzzles: 500 classic + 30 killer + 50 mini 6x6 + 30 diagonal 9x9
+- 530 puzzles clasificados con solver (técnicas requeridas guardadas en BD)
+- 15 puzzles marcados como "destacados" (3 por dificultad)
+- Tabla `sudoku_unlocks` con 12 unlockables por nivel
+- RPCs: `get_featured_sudoku_puzzles()`, `get_sudoku_unlocks(level)`
+- Variantes: `classic`, `killer`, `mini6`, `diagonal` en tabla `sudoku_puzzles`
+- Todo lo anterior (12 EFs, 4 crons, missions, speed) sigue activo
 
 ---
 
-## TAREA 2 — Post-game stats en GameResult (PRIORIDAD ALTA)
+## BLOQUE A — Solver visible en producto
 
-Después de completar un puzzle, `sudoku_game_sessions` ahora tiene columna `percentile`.
+### A1. Mostrar técnicas en selector de dificultad
 
-**Opción A** (simple): leer el percentile de la sesión recién creada:
+En `DifficultySelector.tsx`, para cada dificultad mostrar qué técnicas se necesitan:
 
 ```ts
-// Después de submitPuzzleResult(), hacer:
-const { data: session } = await supabase
-  .from("sudoku_game_sessions")
-  .select("percentile")
-  .eq("user_id", user.id)
-  .order("created_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
-
-// Mostrar en GameResult:
-// "Más rápido que el {session.percentile}% de los jugadores"
+const TECHNIQUE_INFO: Record<string, string> = {
+  easy: "Singles — ideal para empezar",
+  medium: "Singles + eliminación — equilibrado",
+  hard: "Pares + eliminación avanzada",
+  expert: "X-Wing, cadenas — para expertos",
+  fiendish: "Técnicas avanzadas — solo veteranos",
+};
 ```
 
-**Opción B** (si querés más datos): llamar directamente el post-game (requiere internal secret, así que mejor usar Opción A).
+Tooltip o texto debajo de cada opción en el select.
 
-**En `GameResult.tsx`**: agregar debajo del tiempo:
+### A2. Badge de técnica en el tablero durante la partida
 
-- `"Más rápido que el 78% de los jugadores"` (de `percentile`)
-- Badge "Nuevo récord" si el tiempo es menor que `profile.sudoku_best_times[difficulty]`
+Mostrar un badge discreto arriba del tablero: "Puzzle nivel 2 — Requiere pares". Dato viene de la query al puzzle (si viene de `sudoku_puzzles` server-side) o del solver local:
+
+```ts
+import { solvePuzzleLogically, TECHNIQUE_LABELS } from "@/lib/sudoku/solver";
+// Al generar o cargar puzzle:
+const analysis = solvePuzzleLogically(puzzleGrid);
+// analysis.techniquesUsed: ["naked_single", "naked_pair"]
+// analysis.difficultyLabel: "Medio"
+```
+
+### A3. Filtrar puzzles por técnica en `/play`
+
+Agregar filtro opcional: "Solo puzzles con pairs" / "Solo puzzles con X-Wing". Query:
+
+```ts
+const { data } = await supabase
+  .from("sudoku_puzzles")
+  .select("*")
+  .contains("techniques_required", ["naked_pair"])
+  .limit(1);
+```
 
 ---
 
-## TAREA 3 — Weekly Missions (PRIORIDAD MEDIA)
+## BLOQUE B — Coach pedagógico
 
-### Hook `src/hooks/useWeeklyMissions.ts`:
+### B1. Refinar copy de los 3 niveles de hint
+
+El hint ya funciona con `level: 1 | 2 | 3`. Mejorar la UI:
+
+- **Antes del primer hint**: mostrar tooltip "3 niveles: zona → técnica → respuesta"
+- **Nivel 1**: mostrar en un banner encima del tablero (no toast que desaparece). Color azul suave. Texto: lo que devuelve `data.zone`.
+- **Nivel 2**: mismo banner, color amarillo. Texto: `data.technique` + `data.explanation`.
+- **Nivel 3**: colocar número + banner verde con explicación completa.
+- El banner persiste hasta que el jugador toca otra celda.
+
+### B2. Telemetría de hints
+
+Después de cada hint, guardar en localStorage qué nivel usó:
 
 ```ts
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+const hintLog = JSON.parse(localStorage.getItem("sudoku-hint-log") || "[]");
+hintLog.push({ level: usedLevel, technique: data.technique, timestamp: Date.now() });
+localStorage.setItem("sudoku-hint-log", JSON.stringify(hintLog.slice(-100)));
+```
 
-function getMonday(d: Date): string {
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff)).toISOString().slice(0, 10);
+Mostrar en Profile: "Usaste 23 pistas este mes — 60% nivel 1, 30% nivel 2, 10% nivel 3" (indica que el jugador está mejorando si usa menos nivel 3).
+
+---
+
+## BLOQUE C — Post-partida: enseñar qué pasó
+
+### C1. Técnicas usadas en GameResult
+
+Al completar puzzle, correr el solver en el puzzle original:
+
+```ts
+const analysis = solvePuzzleLogically(originalPuzzle);
+```
+
+Mostrar en GameResult debajo del percentil:
+- "Este puzzle requería: Single desnudo, Par desnudo"
+- "Dificultad lógica: Medio (nivel 2)"
+- Si `analysis.techniquesUsed` incluye algo avanzado: badge "Resolviste un puzzle con X-Wing"
+
+### C2. Replay texto (lista de pasos)
+
+El solver devuelve `stepsCount`. Para un replay más detallado, necesitás trackear los pasos:
+
+Crear `src/lib/sudoku/solverDetailed.ts` que extiende el solver para devolver cada paso:
+
+```ts
+interface SolveStep {
+  row: number;
+  col: number;
+  value: number;
+  technique: Technique;
+  explanation: string; // "Fila 3: solo queda el 7"
 }
+```
 
-export function useWeeklyMissions() {
-  const { user } = useAuth();
-  const weekStart = getMonday(new Date());
+Mostrar como lista scrollable en GameResult:
+- "Paso 1: R1C3 = 5 (Single desnudo)"
+- "Paso 2: R4C7 = 8 (Single oculto en columna)"
+- Click en un paso → resaltar la celda en un tablero estático miniatura
+
+### C3. Comparación tu camino vs óptimo
+
+Si el jugador completó en 45 movimientos y el solver lo hace en 28:
+- "Tu camino: 45 pasos — Óptimo: 28 pasos"
+- "Eficiencia: 62%"
+
+Esto necesita que `useSudokuGame` cuente movimientos correctos (ya tiene `history.length`).
+
+---
+
+## BLOQUE D — Progresión que importa
+
+### D1. Sistema de unlocks
+
+Hook `src/hooks/useUnlocks.ts`:
+
+```ts
+export function useUnlocks() {
+  const { profile } = useAuth();
+  const level = profile?.level ?? 1;
 
   return useQuery({
-    queryKey: ["sudoku-weekly-missions", weekStart, user?.id],
-    enabled: !!user,
+    queryKey: ["sudoku-unlocks", level],
     queryFn: async () => {
-      // Fetch missions for this week
-      const { data: missions } = await supabase
-        .from("sudoku_weekly_missions")
-        .select("*")
-        .eq("week_start", weekStart);
-
-      if (!missions?.length) return [];
-
-      // Fetch user progress
-      const { data: progress } = await supabase
-        .from("sudoku_mission_progress")
-        .select("*")
-        .eq("user_id", user!.id)
-        .in("mission_id", missions.map(m => m.id));
-
-      return missions.map(m => ({
-        ...m,
-        progress: progress?.find(p => p.mission_id === m.id) ?? null,
-      }));
+      const { data } = await supabase.rpc("get_sudoku_unlocks", { p_user_level: level });
+      return data ?? [];
     },
   });
 }
 ```
 
-### Componente `src/components/sudoku/WeeklyMissions.tsx`:
+### D2. Pantalla de progresión
 
-- 3 cards horizontales (mobile: vertical stack)
-- Cada card: título, descripción, barra de progreso (current_value / target_value), XP reward
-- Si `completed && !claimed` → botón "Reclamar" que llama `supabase.functions.invoke("sudoku-claim-mission", { body: { mission_id } })`
-- Si `claimed` → badge "Reclamado" en verde
+Nueva sección en Profile (o página `/progress`):
 
-**Dónde ponerlo**: en Landing.tsx o Profile.tsx, debajo del XP bar. Solo visible si hay user autenticado.
+- Lista de unlocks agrupados por tipo (temas, variantes, dificultades, features)
+- Cada item: icono + nombre + "Nivel X requerido" + barra de progreso hasta ese nivel
+- Los desbloqueados: borde dorado + "Desbloqueado"
+- Los bloqueados: gris + icono de candado + "Te faltan N niveles"
+
+### D3. Bloquear variantes/dificultades por nivel
+
+En el selector de dificultad y en la selección de variantes:
+- Si `expert` requiere nivel 7 y el jugador es nivel 3: mostrar candado + tooltip "Desbloqueá al nivel 7"
+- Si `diagonal` requiere nivel 5: igual
+- `mini6` y `easy`/`medium`/`hard` están desde nivel 1
+
+**Importante**: esto NO bloquea en modo offline (sin auth). Solo bloquea si hay perfil con nivel bajo. Sin auth = todo abierto (para no frustrar nuevos usuarios).
 
 ---
 
-## TAREA 4 — Speed Mode página /speed (PRIORIDAD MEDIA)
+## BLOQUE E — Puzzles destacados
 
-### Nuevo `src/pages/Speed.tsx`:
+### E1. Sección "Destacados" en Landing
+
+Debajo del tablero hero, sección "Puzzles destacados":
 
 ```ts
-// Hook para obtener challenge actual
-const { data } = await supabase.rpc("get_current_speed_challenge");
-// data: { challenge_id, puzzle, solution, difficulty, starts_at, ends_at, completions }
+const { data: featured } = await supabase.rpc("get_featured_sudoku_puzzles", { p_limit: 5 });
 ```
 
-Página con:
-- Header: "Speed Challenge" + countdown hasta `ends_at` (reusá DailyCountdown adaptado)
-- Badge: "Dificultad: Medio" + "N jugadores completaron"
-- Tablero: mismo que `/play` pero con puzzle del challenge (parse `data.puzzle` y `data.solution` como JSON)
-- Al completar: `supabase.functions.invoke("sudoku-speed-submit", { body: { challenge_id, time_ms, errors } })`
-- Mostrar rank devuelto: "Puesto #3 de 45"
-- Debajo: leaderboard con `supabase.rpc("get_speed_leaderboard", { p_challenge_id, p_limit: 20 })`
+5 cards en scroll horizontal:
+- Badge con dificultad
+- Título: "Destacado #1"
+- Razón: "Requiere técnicas avanzadas"
+- CTA: "Jugar" → navega a `/play` con ese puzzle pre-cargado
 
-**Ruta**: en App.tsx agregar `<Route path="/speed" element={<Speed />} />`
-**Navbar**: agregar link "Speed" entre "Diario" y "Perfil"
+### E2. Badge en puzzle del día
+
+Si el daily es un puzzle featured, mostrar badge dorado "Puzzle destacado" en `/daily`.
 
 ---
 
-## TAREA 5 — Daily: mostrar día + dificultad (TRIVIAL)
+## BLOQUE F — Variantes nuevas (Mini 6x6 + Diagonal)
 
-En `/daily`, el daily ahora varía por día de la semana. Mostrar:
+### F1. Selector de variante en Landing y /play
 
-```tsx
-const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-const today = new Date();
-// daily.difficulty viene de la query a sudoku_daily_challenges
-<p>{dayNames[today.getUTCDay()]} — {daily.difficulty} (+{daily.bonus_xp} XP)</p>
+Agregar tabs o pills encima del tablero:
+
+```
+[Clásico] [Killer] [Mini 6x6] [Diagonal]
 ```
 
----
+Cada tab filtra el tipo de puzzle que se genera/carga.
 
-## TAREAS OPCIONALES (si hay tiempo)
+### F2. Mini Sudoku 6x6
 
-### 6. Pencil marks automáticos
+**Board**: grid 6x6 con cajas 2x3 (2 filas × 3 columnas). Números 1-6.
 
-Botón en GameControls: "Auto-notas". Al clickear, recorre todas las celdas vacías y calcula candidatos válidos por fila/col/box. Puro frontend, sin backend.
+**Cambios en componentes**:
+- `SudokuBoard.tsx`: aceptar prop `gridSize: 6 | 9` (default 9). Ajustar CSS grid, bordes gruesos.
+- `SudokuCell.tsx`: notas de 1-6 (no 1-9) si gridSize=6
+- `NumPad.tsx`: mostrar solo 1-6 si gridSize=6 (grid 2x3 en vez de 3x3)
+- `DifficultySelector.tsx`: mismas dificultades pero con menos givens para 6x6
+
+**Generación**: si el jugador elige Mini, cargar un puzzle de la BD con `variant='mini6'`:
 
 ```ts
-function autoFillNotes(board: Board): Board {
-  const next = cloneBoard(board);
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (next[r][c].value !== null) continue;
-      const notes: CellNotes = {};
-      for (let n = 1; n <= 9; n++) {
-        if (getCellConflicts(/* board with n placed */).length === 0) notes[n] = true;
-      }
-      next[r][c].notes = notes;
-    }
-  }
-  return updateAllErrors(next);
+const { data } = await supabase
+  .from("sudoku_puzzles")
+  .select("puzzle, solution, difficulty")
+  .eq("variant", "mini6")
+  .eq("difficulty", selectedDifficulty)
+  .order("times_played", { ascending: true })
+  .limit(1)
+  .single();
+```
+
+Si no hay puzzles server-side, generar client-side (necesita `generator6x6.ts` — SOLO SI el generador actual no soporta 6x6). Claude puede crear ese módulo si lo necesitás — anotá en COORDINATION.md.
+
+### F3. Diagonal Sudoku 9x9
+
+**Board**: grid 9x9 normal pero las 2 diagonales están resaltadas visualmente (fondo dorado sutil). Regla extra: las diagonales principales también deben tener 1-9 únicos.
+
+**Cambios en componentes**:
+- `SudokuBoard.tsx`: si `variant='diagonal'`, agregar clase CSS a las celdas diagonales (`r === c` y `r + c === 8`)
+- `SudokuCell.tsx`: prop `isDiagonal?: boolean` → fondo distinto
+- `validator.ts`: NO MODIFICAR (está en zona compartida). En vez de eso, crear `src/lib/sudoku/diagonalValidator.ts` que extiende el validator con checks de diagonal.
+
+**CSS** para celdas diagonales:
+
+```css
+.sudoku-cell-diagonal {
+  background: hsla(43, 90%, 55%, 0.08);
+  border-color: hsla(43, 90%, 55%, 0.15);
 }
 ```
 
-### 7. Calendario actividad (30 días)
+### F4. Ruta /play/mini y /play/diagonal
 
-Componente con 30 círculos en fila. Verde si jugó ese día, gris si no. Datos de `sudoku_game_sessions` agrupados por fecha.
+```tsx
+<Route path="/play/mini" element={<PlayMini />} />
+<Route path="/play/diagonal" element={<PlayDiagonal />} />
+```
 
-### 8. Stats con Recharts en Profile
-
-Recharts ya está instalado. Gráfico de línea con tiempo promedio por dificultad (últimos 30 días).
+O mejor: un solo `/play` con query param `?variant=mini6` que cambia el comportamiento.
 
 ---
 
-## Estado implementación (Cursor)
+## BLOQUE G — Visual polish
 
-Tareas 1–5 cubiertas en código: hint con `level` 1–3 + `nextHintLevel` / `aria-label`, `useWinPostGameStats` + `GameResult`, `useWeeklyMissions` + `WeeklyMissions` (Landing + Profile), `/speed` + Navbar + `speedMeta` en `useSudokuGame`, daily con línea día UTC + dificultad. Si un RPC no existe en tu proyecto Supabase, la UI de Speed muestra error recuperable.
+### G1. Pencil marks automáticos
+
+Botón en GameControls: icono `Wand2` de Lucide. Al clickear: recorre todas las celdas vacías y rellena notas con candidatos válidos.
+
+```ts
+function autoFillNotes(board: Board, gridSize = 9): Board {
+  const next = cloneBoard(board);
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
+      if (next[r][c].value !== null) continue;
+      const notes: CellNotes = {};
+      for (let n = 1; n <= gridSize; n++) {
+        // Check row, col, box
+        let valid = true;
+        for (let i = 0; i < gridSize; i++) {
+          if (next[r][i].value === n || next[i][c].value === n) { valid = false; break; }
+        }
+        if (valid) {
+          const boxH = gridSize === 6 ? 2 : 3;
+          const boxW = gridSize === 6 ? 3 : 3;
+          const br = Math.floor(r / boxH) * boxH, bc = Math.floor(c / boxW) * boxW;
+          for (let rr = br; rr < br + boxH && valid; rr++)
+            for (let cc = bc; cc < bc + boxW && valid; cc++)
+              if (next[rr][cc].value === n) valid = false;
+        }
+        if (valid) notes[n] = true;
+      }
+      next[r][c] = { ...next[r][c], notes };
+    }
+  }
+  return next;
+}
+```
+
+**Unlock**: solo si nivel >= 2 (check contra `get_sudoku_unlocks`). Sin auth = siempre disponible.
+
+### G2. Calendario de actividad (30 días)
+
+Componente `src/components/sudoku/ActivityCalendar.tsx`:
+
+- 30 círculos en fila (o grid 5x6)
+- Query: `supabase.from("sudoku_game_sessions").select("created_at").eq("user_id", user.id).gte("created_at", thirtyDaysAgo)`
+- Agrupar por fecha → Set de fechas activas
+- Cada círculo: verde si jugó, gris si no, dorado si es hoy
+- Mostrar en Profile
+
+### G3. Stats con Recharts
+
+En Profile, gráfico de línea:
+
+```ts
+// Query últimas 30 sesiones agrupadas por fecha
+const { data } = await supabase
+  .from("sudoku_game_sessions")
+  .select("time_ms, difficulty, created_at")
+  .eq("user_id", user.id)
+  .order("created_at", { ascending: true })
+  .limit(50);
+```
+
+- Eje X: fecha
+- Eje Y: tiempo promedio (ms → min:seg)
+- Líneas por dificultad (colores distintos)
+- Tooltip con detalle
+
+---
+
+## ORDEN DE EJECUCIÓN (no negociable)
+
+1. **A1 + A2** — técnicas en selector + badge en tablero
+2. **B1** — refinar copy hints (banner en vez de toast)
+3. **C1 + C2** — técnicas en GameResult + replay texto
+4. **F1 + F2 + F3** — variantes Mini + Diagonal (selector + board + rutas)
+5. **D1 + D2 + D3** — unlocks (hook, pantalla, bloqueos)
+6. **E1 + E2** — puzzles destacados en Landing + Daily
+7. **G1 + G2 + G3** — pencil marks, calendario, Recharts
 
 ## LO QUE NO TOCAR
 
-- `supabase/**` — no tocar EFs ni migraciones
-- `src/lib/sudokuService.ts` — no modificar
-- `src/contexts/AuthContext.tsx` — no modificar
-- `src/lib/sudoku/generator.ts`, `validator.ts`, `solver.ts` — no modificar
+- `supabase/**`
+- `src/lib/sudokuService.ts`
+- `src/contexts/AuthContext.tsx`
+- `src/lib/sudoku/generator.ts`, `validator.ts` (crear archivos NUEVOS si necesitás variantes, NO modificar estos)
+- `solver.ts` — solo importarlo, no editarlo
 
-## DESPUÉS DE CADA TAREA
+## DESPUÉS DE CADA BLOQUE
 
 1. `npm run typecheck` verde
 2. `npm run build` verde
-3. Commit con `feat: <qué>` o `fix: <qué>`
-4. Push a main (auto-deploy a Vercel)
+3. Commit con `feat: <bloque y qué>`
+4. Push a main
 5. Verificar en https://championshipsudoku.vercel.app
+
+## SI ALGO DEL BACKEND NO EXISTE
+
+Anotá en `docs/COORDINATION.md` qué necesitás y seguí con el siguiente bloque. Claude lo resuelve.
