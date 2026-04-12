@@ -313,5 +313,25 @@ Nuevo `docs/QA_LIVE_CHECKLIST.md` con tabla 15 ítems + columna owner; cierre ma
 
 ---
 
+## 2026-04-12 — Cursor — Sprints UX/a11y + handoff Claude
+
+**Repo**: `championshipsudoku`
+
+**Qué se hizo**:
+- UTM saliente (`src/lib/utm.ts` + tests Vitest); Navbar: enlace opcional **Hub** (`VITE_HUB_URL`) y Chess con mismos params de campaña.
+- `GameResult` migrado a Radix Dialog; Daily: ancla `#daily-leaderboard` + CTA en modal de victoria.
+- `DIFFICULTY_CONFIG.hint` + tooltips en `DifficultySelector`.
+- `ErrorBoundary` (`main.tsx`), `OfflineBanner` (`App.tsx`), `FirstVisitHelp` en Landing (localStorage).
+- Perfil: nombres legibles en `title`/`sr-only` para logros; Killer: copy de reglas ampliado.
+- NumPad: `aria-label` y tamaño mínimo táctil; `index.css`: `prefers-reduced-motion` en animaciones del tablero.
+- `useLoginSync`: `refreshProfile()` tras sync exitoso de partidas offline.
+- Documentación: `docs/SPRINTS_HANDOFF.md` (pendientes backend para Claude Code).
+
+**Qué debe hacer Claude Code**: ver sección “Pendiente” en `docs/SPRINTS_HANDOFF.md` (cron, OAuth, seeds, rate limits).
+
+**Git**: commit/push desde máquina local cuando corresponda.
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 

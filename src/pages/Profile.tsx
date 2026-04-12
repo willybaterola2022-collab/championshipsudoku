@@ -22,6 +22,19 @@ const ACH_KEYS = [
   "sudoku_killer",
 ] as const;
 
+const ACHIEVEMENT_LABELS: Record<(typeof ACH_KEYS)[number], string> = {
+  sudoku_first_puzzle: "Primer puzzle",
+  sudoku_streak_3: "Racha 3 días",
+  sudoku_streak_7: "Racha 7 días",
+  sudoku_perfect: "Sin errores",
+  sudoku_speed: "Velocidad",
+  sudoku_10_puzzles: "10 resueltos",
+  sudoku_50_puzzles: "50 resueltos",
+  sudoku_hard: "Difícil",
+  sudoku_expert: "Experto",
+  sudoku_killer: "Killer",
+};
+
 export default function Profile() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
   const { progress, rank, isServerProgress, sessionDifficultyError } = usePlayerProgress();
@@ -183,16 +196,18 @@ export default function Profile() {
           <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
             {ACH_KEYS.map((key) => {
               const unlocked = unlockedKeys?.has(key) ?? false;
+              const label = ACHIEVEMENT_LABELS[key];
               return (
                 <div
                   key={key}
-                  title={key}
+                  title={label}
                   className={cn(
                     "flex aspect-square items-center justify-center rounded-full border-2 text-[10px] font-medium",
                     unlocked ? "border-primary bg-primary/20 text-primary" : "border-border text-muted-foreground"
                   )}
                 >
-                  {key.replace("sudoku_", "").slice(0, 3)}
+                  <span className="sr-only">{label}</span>
+                  <span aria-hidden>{key.replace("sudoku_", "").replace(/_/g, "").slice(0, 3)}</span>
                 </div>
               );
             })}

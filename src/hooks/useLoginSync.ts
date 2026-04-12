@@ -5,7 +5,7 @@ import { sudokuService } from "@/lib/sudokuService";
 
 /** Runs once per session when user signs in: flushes offline completions to the server. */
 export function useLoginSync() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const syncedRef = useRef(false);
 
   useEffect(() => {
@@ -15,9 +15,10 @@ export function useLoginSync() {
     }
     if (syncedRef.current) return;
     syncedRef.current = true;
-    void sudokuService.syncPending().then(({ synced, failed }) => {
+    void sudokuService.syncPending().then(async ({ synced, failed }) => {
       if (synced > 0) {
         toast.success(`Sincronizadas ${synced} partida${synced === 1 ? "" : "s"} offline`);
+        await refreshProfile();
       }
       if (failed > 0) {
         toast.message("Algunas partidas no se pudieron sincronizar", {
@@ -25,5 +26,5 @@ export function useLoginSync() {
         });
       }
     });
-  }, [user]);
+  }, [user, refreshProfile]);
 }

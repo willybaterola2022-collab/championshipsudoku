@@ -33,14 +33,46 @@ export interface DifficultyConfig {
   givenMin: number;
   givenMax: number;
   baseXp: number;
+  /** Una línea para tooltip / accesibilidad del selector */
+  hint: string;
 }
 
 export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
-  easy: { label: "Fácil", givenMin: 35, givenMax: 40, baseXp: 30 },
-  medium: { label: "Medio", givenMin: 28, givenMax: 34, baseXp: 50 },
-  hard: { label: "Difícil", givenMin: 24, givenMax: 27, baseXp: 80 },
-  expert: { label: "Experto", givenMin: 22, givenMax: 23, baseXp: 120 },
-  fiendish: { label: "Diabólico", givenMin: 17, givenMax: 21, baseXp: 200 },
+  easy: {
+    label: "Fácil",
+    givenMin: 35,
+    givenMax: 40,
+    baseXp: 30,
+    hint: "Muchas celdas resueltas al inicio; ideal para practicar reglas.",
+  },
+  medium: {
+    label: "Medio",
+    givenMin: 28,
+    givenMax: 34,
+    baseXp: 50,
+    hint: "Equilibrio entre pistas y deducción.",
+  },
+  hard: {
+    label: "Difícil",
+    givenMin: 24,
+    givenMax: 27,
+    baseXp: 80,
+    hint: "Menos pistas; hace falta seguir cadenas de deducción.",
+  },
+  expert: {
+    label: "Experto",
+    givenMin: 22,
+    givenMax: 23,
+    baseXp: 120,
+    hint: "Pocas pistas; técnicas avanzadas (cadenas, sets).",
+  },
+  fiendish: {
+    label: "Diabólico",
+    givenMin: 17,
+    givenMax: 21,
+    baseXp: 200,
+    hint: "Mínimo de pistas; solo para muy experimentados.",
+  },
 };
 
 export const RANKS = [

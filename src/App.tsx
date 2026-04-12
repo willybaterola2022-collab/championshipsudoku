@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { SkipToContent } from "@/components/SkipToContent";
 import { useLoginSync } from "@/hooks/useLoginSync";
 
@@ -50,6 +51,7 @@ export default function App() {
   return (
     <>
       <SkipToContent />
+      <OfflineBanner />
       <div id="main-content" tabIndex={-1} className="outline-none">
         <AppRoutes />
       </div>

@@ -81,7 +81,8 @@ export default function PlayKiller() {
 
       <main className="container space-y-6 px-4 pb-12 pt-6">
         <p className="text-center text-sm text-muted-foreground">
-          Sumas por jaula, sin números iniciales. Sin pistas IA en esta versión.
+          Cada jaula (región delimitada) debe sumar el número indicado, sin repetir dígitos en fila, columna ni
+          jaula. No hay celdas dadas al inicio. Las pistas por IA no están disponibles en Killer en esta versión.
         </p>
         <BoardThemeSelector value={theme} onChange={(id) => { setTheme(id); writeBoardTheme(id); }} />
 

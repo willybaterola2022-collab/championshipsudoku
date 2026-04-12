@@ -1,8 +1,10 @@
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { withAppUtm } from "@/lib/utm";
 import { cn } from "@/lib/utils";
 
 const CHESS_URL = import.meta.env.VITE_CHESS_APP_URL as string | undefined;
+const HUB_URL = import.meta.env.VITE_HUB_URL as string | undefined;
 
 export function Navbar() {
   const { user } = useAuth();
@@ -37,9 +39,19 @@ export function Navbar() {
           >
             Diario
           </NavLink>
+          {HUB_URL ? (
+            <a
+              href={withAppUtm(HUB_URL, "nav")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Hub
+            </a>
+          ) : null}
           {CHESS_URL ? (
             <a
-              href={CHESS_URL}
+              href={withAppUtm(CHESS_URL, "nav")}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground"

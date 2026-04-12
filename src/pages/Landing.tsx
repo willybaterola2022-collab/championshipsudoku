@@ -2,6 +2,7 @@ import { Grid3x3, Maximize2, Swords } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { FirstVisitHelp } from "@/components/FirstVisitHelp";
 import { Navbar } from "@/components/Navbar";
 import { BoardThemeSelector, readBoardTheme, writeBoardTheme, type BoardThemeId } from "@/components/sudoku/BoardThemeSelector";
 import { DailyCountdown } from "@/components/sudoku/DailyCountdown";
@@ -58,6 +59,7 @@ export default function Landing() {
   return (
     <div className={cn("min-h-screen bg-background text-foreground", themeClass)}>
       <Navbar />
+      <FirstVisitHelp />
       <main className="container space-y-6 px-4 pb-10 pt-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">

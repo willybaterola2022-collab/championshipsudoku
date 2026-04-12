@@ -118,7 +118,7 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
         />
       </section>
 
-      <section className="mt-12 space-y-4">
+      <section id="daily-leaderboard" className="mt-12 scroll-mt-24 space-y-4">
         <h2 className="font-serif text-xl text-primary">Ranking de hoy</h2>
         <Leaderboard type="daily" limit={20} />
       </section>
@@ -130,6 +130,11 @@ function DailyInner({ row }: { row: DailyChallengeRow }) {
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
         onShare={shareResult}
+        footerExtra={
+          <a href="#daily-leaderboard" className="text-center text-sm text-primary hover:underline">
+            Ver ranking de hoy
+          </a>
+        }
       />
     </>
   );

@@ -26,8 +26,11 @@ export function NumPad({ board, onInput, disabled }: NumPadProps) {
           type="button"
           disabled={disabled || c >= 9}
           onClick={() => onInput(n)}
+          aria-label={
+            c >= 9 ? `Número ${n}, ya colocado 9 veces` : `Escribir ${n} en la celda seleccionada`
+          }
           className={cn(
-            "glass aspect-square max-h-[80px] rounded-xl text-xl font-semibold text-foreground transition-all hover:border-primary/60 hover:shadow-[0_0_20px_hsla(43,90%,55%,0.2)] sm:text-2xl",
+            "glass aspect-square min-h-[44px] min-w-[44px] max-h-[80px] rounded-xl text-xl font-semibold text-foreground transition-all hover:border-primary/60 hover:shadow-[0_0_20px_hsla(43,90%,55%,0.2)] sm:text-2xl",
             c >= 9 && "cursor-not-allowed opacity-30"
           )}
         >
