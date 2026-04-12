@@ -120,6 +120,23 @@ Deno.serve(async (req) => {
 
     const grantData = grantRes.ok ? await grantRes.json() : {};
 
+    // Chain to post-game-analysis (fire-and-forget, don't block response)
+    fetch(`${supabaseUrl}/functions/v1/sudoku-post-game-analysis`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-internal-secret": internalSecret,
+      },
+      body: JSON.stringify({
+        session_id: sessionRow.id,
+        user_id: user.id,
+        difficulty: body.difficulty,
+        time_ms: body.time_ms,
+        errors: body.errors,
+        variant: body.variant,
+      }),
+    }).catch(() => {});
+
     return jsonResponse(req, {
       session_id: sessionRow.id,
       verified: true,
