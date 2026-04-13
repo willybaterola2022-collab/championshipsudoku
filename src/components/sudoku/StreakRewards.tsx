@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -14,20 +15,17 @@ const FALLBACK: { days: number; reward: string; description: string }[] = [
 
 function normalizeRows(data: unknown): { days: number; reward: string; description: string }[] {
   if (!Array.isArray(data) || data.length === 0) return FALLBACK;
-  return data.map((row: Record<string, unknown>) => ({
-    days: Number(row.days ?? row.day_threshold ?? 0),
-    reward: String(row.reward ?? row.reward_label ?? row.title ?? "—"),
-    description: String(row.description ?? row.desc ?? ""),
-  })).filter((r) => r.days > 0);
+  return data
+    .map((row: Record<string, unknown>) => ({
+      days: Number(row.days ?? row.day_threshold ?? 0),
+      reward: String(row.reward ?? row.reward_label ?? row.title ?? "—"),
+      description: String(row.description ?? row.desc ?? ""),
+    }))
+    .filter((r) => r.days > 0);
 }
 
-interface StreakRewardsProps {
-  streakDays: number;
-  className?: string;
-  compact?: boolean;
-}
-
-export function StreakRewards({ streakDays, className, compact }: StreakRewardsProps) {
+/** Hitos de racha + próximo objetivo (comparte caché con `StreakRewards`). */
+export function useStreakMilestones(streakDays: number) {
   const { data: raw } = useQuery({
     queryKey: ["sudoku-streak-rewards"],
     queryFn: async () => {
@@ -38,8 +36,23 @@ export function StreakRewards({ streakDays, className, compact }: StreakRewardsP
     staleTime: 60_000,
   });
 
-  const milestones = normalizeRows(raw);
-  const next = milestones.find((m) => streakDays < m.days);
+  const milestones = useMemo(() => normalizeRows(raw), [raw]);
+  const next = useMemo(
+    () => milestones.find((m) => streakDays < m.days),
+    [milestones, streakDays]
+  );
+
+  return { milestones, next };
+}
+
+interface StreakRewardsProps {
+  streakDays: number;
+  className?: string;
+  compact?: boolean;
+}
+
+export function StreakRewards({ streakDays, className, compact }: StreakRewardsProps) {
+  const { milestones, next } = useStreakMilestones(streakDays);
 
   return (
     <div className={cn("rounded-xl border border-border/50 bg-muted/20 p-4", className)}>

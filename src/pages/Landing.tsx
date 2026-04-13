@@ -15,7 +15,6 @@ import { GameResult } from "@/components/sudoku/GameResult";
 import { NumPad } from "@/components/sudoku/NumPad";
 import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { StreakCounter } from "@/components/sudoku/StreakCounter";
-import { StreakRewards } from "@/components/sudoku/StreakRewards";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
@@ -324,7 +323,6 @@ export default function Landing() {
               <StreakCounter days={progress.streakDays} playedToday={playedToday} />
               <DailyCountdown />
             </div>
-            <StreakRewards streakDays={progress.streakDays} compact />
           </div>
           <XPBar progress={progress} rank={rank} className="w-full sm:max-w-xs" />
         </div>
