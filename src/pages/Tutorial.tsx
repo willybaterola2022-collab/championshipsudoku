@@ -1,102 +1,145 @@
 import { Check, ChevronDown, Lock } from "lucide-react";
-import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
-import { GameControls } from "@/components/sudoku/GameControls";
 import { NumPad } from "@/components/sudoku/NumPad";
-import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
-import { Timer } from "@/components/sudoku/Timer";
-import { useSudokuGame } from "@/hooks/useSudokuGame";
-import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import { useTutorialProgress } from "@/hooks/useTutorialProgress";
+import { usePlayerProgress } from "@/hooks/usePlayerProgress";
+import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
 import type { TutorialLesson } from "@/lib/sudoku/tutorials";
+import { cloneBoard, numbersToBoard, type Board } from "@/lib/sudoku/types";
+import { updateAllErrors } from "@/lib/sudoku/validator";
 import { cn } from "@/lib/utils";
 
 function LessonRunner({
   lesson,
-  onComplete,
+  onMarkComplete,
+  onDismiss,
 }: {
   lesson: TutorialLesson;
-  onComplete: () => void;
+  onMarkComplete: () => void;
+  onDismiss: () => void;
 }) {
-  const seeded = useMemo(
-    () => ({
-      puzzle: lesson.puzzle.map((r) => [...r]),
-      solution: lesson.solution.map((r) => [...r]),
-      difficulty: "easy" as const,
-    }),
-    [lesson]
+  const { grantTutorialXp } = usePlayerProgress();
+  const target = lesson.targetCell;
+  const xpGranted = useRef(false);
+
+  const givens = useMemo(
+    () =>
+      lesson.puzzle.map((row, ri) =>
+        row.map((v, ci) => {
+          if (ri === target.row && ci === target.col) return 0;
+          if (v !== 0) return 1;
+          return 1;
+        })
+      ),
+    [lesson.puzzle, target.col, target.row]
   );
 
-  const game = useSudokuGame({
-    seeded,
-    persistenceKey: `sudoku-tutorial-${lesson.key}`,
+  const [board, setBoard] = useState<Board>(() =>
+    updateAllErrors(numbersToBoard(lesson.puzzle.map((r) => [...r]), givens))
+  );
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>({
+    row: target.row,
+    col: target.col,
   });
+  const [hintVisible, setHintVisible] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const selectCell = useCallback(
+    (row: number, col: number) => {
+      if (row !== target.row || col !== target.col) {
+        toast.message("Usá la celda resaltada en dorado.");
+        return;
+      }
+      setSelectedCell({ row, col });
+    },
+    [target.col, target.row]
+  );
+
+  const placeNumber = useCallback(
+    (n: number) => {
+      if (success) return;
+      if (!selectedCell || selectedCell.row !== target.row || selectedCell.col !== target.col) {
+        toast.message("Seleccioná la celda dorada.");
+        return;
+      }
+      if (n !== target.value) {
+        setHintVisible(true);
+        toast.error(lesson.hint);
+        return;
+      }
+      const next = cloneBoard(board);
+      next[target.row][target.col] = {
+        ...next[target.row][target.col],
+        value: n,
+        notes: {},
+        isError: false,
+      };
+      const updated = updateAllErrors(next);
+      setBoard(updated);
+      setSuccess(true);
+      if (!xpGranted.current) {
+        xpGranted.current = true;
+        grantTutorialXp(30);
+        onMarkComplete();
+      }
+      toast.success("¡Técnica dominada!");
+    },
+    [board, grantTutorialXp, lesson.hint, onMarkComplete, selectedCell, success, target, lesson]
+  );
 
   useSudokuKeyboard({
-    enabled: !game.isCompleted && !game.isPaused && !game.isOutOfLives,
-    onDigit: game.placeNumber,
-    onErase: game.eraseCell,
-    onUndo: game.undo,
-    onToggleNotes: game.toggleNotes,
+    enabled: !success,
+    onDigit: placeNumber,
+    onErase: () => {},
+    onUndo: () => {},
+    onToggleNotes: () => {},
   });
-
-  const target = lesson.targetCell;
 
   return (
     <div className="space-y-4 border-t border-border/40 pt-4">
-      <div className="prose prose-invert max-w-none text-sm">
+      <div className="max-w-none text-sm">
         <p className="text-foreground">{lesson.description}</p>
-        <p className="text-muted-foreground">{lesson.explanation}</p>
+        <p className="mt-2 text-muted-foreground">{lesson.explanation}</p>
       </div>
-      <p className="text-xs text-primary">Celda objetivo: fila {target.row + 1}, columna {target.col + 1}</p>
+      {hintVisible ? (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          Pista: {lesson.hint}
+        </p>
+      ) : null}
       <SudokuBoard
-        board={game.board}
-        selectedCell={game.selectedCell}
-        onSelectCell={game.selectCell}
+        board={board}
+        selectedCell={selectedCell}
+        onSelectCell={selectCell}
         sizeClassName="w-[min(90vw,400px)]"
-      />
-      <div className="flex flex-wrap gap-3">
-        <Timer
-          seconds={game.timerSeconds}
-          isPaused={game.isPaused}
-          onTogglePause={game.togglePause}
-          disabled={game.isCompleted}
-        />
-      </div>
-      <ProgressBar filled={game.filledCount} />
-      <GameControls
-        canUndo={game.history.length > 0}
-        notesActive={game.isNotesMode}
-        onUndo={game.undo}
-        onErase={game.eraseCell}
-        onToggleNotes={game.toggleNotes}
-        onHint={() => void game.useHint()}
-        hintsRemaining={game.hintsRemaining}
-        hintLoading={game.hintLoading}
-        hintLevelNext={game.nextHintLevel}
-        disabled={game.isCompleted || game.mistakes >= game.maxMistakes}
+        pulseTarget={{ row: target.row, col: target.col }}
       />
       <NumPad
-        board={game.board}
-        onInput={game.placeNumber}
-        disabled={game.isCompleted || game.isPaused || game.mistakes >= game.maxMistakes}
+        gridSize={9}
+        board={board}
+        onInput={placeNumber}
+        disabled={success}
       />
-      {game.isCompleted ? (
-        <div className="rounded-lg border border-primary/40 bg-primary/10 p-4 text-center">
-          <p className="font-semibold text-primary">¡Técnica dominada!</p>
+      {success ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 24 }}
+          className="rounded-xl border border-primary/50 bg-primary/10 p-4 text-center"
+        >
+          <p className="font-serif text-lg text-gradient-gold">¡Técnica dominada!</p>
+          <p className="mt-1 text-sm text-muted-foreground">+30 XP de práctica</p>
           <button
             type="button"
-            className="mt-3 rounded-lg border border-border px-4 py-2 text-sm"
-            onClick={() => {
-              onComplete();
-              toast.success("Lección completada");
-            }}
+            className="mt-4 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium"
+            onClick={onDismiss}
           >
-            Marcar completada y volver
+            Seguir
           </button>
-        </div>
+        </motion.div>
       ) : null}
     </div>
   );
@@ -113,7 +156,7 @@ export default function Tutorial() {
         <div>
           <h1 className="font-serif text-3xl text-gradient-gold">Aprender técnicas</h1>
           <p className="mt-2 text-muted-foreground">
-            Diez lecciones con tableros diseñados. Completá cada puzzle para dominar la técnica.
+            Diez lecciones. En cada una resolvé la celda dorada con la técnica indicada.
           </p>
         </div>
 
@@ -168,10 +211,8 @@ export default function Tutorial() {
                   <div className="border-t border-border/40 px-4 pb-4">
                     <LessonRunner
                       lesson={lesson}
-                      onComplete={() => {
-                        markComplete(lesson.key);
-                        setOpenKey(null);
-                      }}
+                      onMarkComplete={() => markComplete(lesson.key)}
+                      onDismiss={() => setOpenKey(null)}
                     />
                   </div>
                 ) : null}

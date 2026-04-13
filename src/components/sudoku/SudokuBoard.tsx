@@ -10,8 +10,10 @@ interface SudokuBoardProps {
   animateStagger?: boolean;
   className?: string;
   diagonal?: boolean;
-  /** Default 9. Use 6 for Mini Sudoku (2×3 cajas). */
+  /** Default 9. Use 6 para Mini Sudoku (2×3 cajas). */
   gridSize?: 6 | 9;
+  /** Tutorial: una celda con anillo dorado pulsante. */
+  pulseTarget?: { row: number; col: number } | null;
 }
 
 export function SudokuBoard({
@@ -23,6 +25,7 @@ export function SudokuBoard({
   className,
   diagonal = false,
   gridSize = 9,
+  pulseTarget = null,
 }: SudokuBoardProps) {
   const n = gridSize;
   const cells = n * n;
@@ -54,6 +57,7 @@ export function SudokuBoard({
               staggerDelayMs={animateStagger ? row * 20 + col * 3 : 0}
               diagonal={diagonal}
               gridSize={gridSize}
+              pulseTarget={Boolean(pulseTarget && pulseTarget.row === row && pulseTarget.col === col)}
             />
           );
         })}

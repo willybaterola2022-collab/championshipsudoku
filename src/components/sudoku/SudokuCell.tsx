@@ -12,6 +12,8 @@ interface SudokuCellProps {
   /** Resalta diagonales principales (variante diagonal). */
   diagonal?: boolean;
   gridSize?: 6 | 9;
+  /** Tutorial: celda objetivo con pulso dorado. */
+  pulseTarget?: boolean;
 }
 
 export function SudokuCell({
@@ -23,6 +25,7 @@ export function SudokuCell({
   staggerDelayMs = 0,
   diagonal = false,
   gridSize = 9,
+  pulseTarget = false,
 }: SudokuCellProps) {
   const cell = board[row][col];
   const onDiag = diagonal && isOnDiagonal(row, col);
@@ -69,6 +72,7 @@ export function SudokuCell({
         !isSelected && sameNumber && "bg-[hsla(var(--sudoku-cell-same-number)/0.5)]",
         !isSelected && highlight && !sameNumber && "bg-[hsla(var(--sudoku-cell-highlight)/0.6)]",
         onDiag && "sudoku-cell-diagonal",
+        pulseTarget && "z-[2] animate-glow-pulse ring-2 ring-primary ring-offset-2 ring-offset-[hsl(var(--sudoku-border-thin))]",
         "active:scale-[0.97]"
       )}
       onClick={() => onSelect(row, col)}

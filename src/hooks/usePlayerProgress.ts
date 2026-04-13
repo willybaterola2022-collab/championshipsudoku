@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -257,10 +258,41 @@ export function usePlayerProgress() {
     [user]
   );
 
+  /** +30 XP por lección de tutorial: persiste local solo sin sesión; con sesión muestra aviso (sin tocar `sudokuService`). */
+  const grantTutorialXp = useCallback(
+    (amount: number) => {
+      if (user) {
+        toast.success(`+${amount} XP de práctica (tutorial)`);
+        return;
+      }
+      setLocalProgress((prev) => {
+        let { level, xp, totalXp } = prev;
+        totalXp += amount;
+        xp += amount;
+        let need = xpToNextLevel(level);
+        while (xp >= need) {
+          xp -= need;
+          level += 1;
+          need = xpToNextLevel(level);
+        }
+        return {
+          ...prev,
+          level,
+          xp,
+          totalXp,
+          xpToNext: xpToNextLevel(level),
+        };
+      });
+      toast.success(`+${amount} XP`);
+    },
+    [user]
+  );
+
   return {
     progress,
     rank,
     recordWin,
+    grantTutorialXp,
     isServerProgress: Boolean(user && profile),
     authLoading,
     sessionDifficultyError,
