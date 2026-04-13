@@ -12,6 +12,8 @@ const Daily = lazy(() => import("@/pages/Daily"));
 const Speed = lazy(() => import("@/pages/Speed"));
 const Login = lazy(() => import("@/pages/Login"));
 const Profile = lazy(() => import("@/pages/Profile"));
+const Challenge = lazy(() => import("@/pages/Challenge"));
+const Tutorial = lazy(() => import("@/pages/Tutorial"));
 
 function RouteFallback() {
   return (
@@ -45,6 +47,8 @@ function AppRoutes() {
         <Route path="/speed" element={<Speed />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/challenge/:code" element={<Challenge />} />
+        <Route path="/tutorial" element={<Tutorial />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

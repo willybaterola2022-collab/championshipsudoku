@@ -79,6 +79,13 @@ export interface UseSudokuGameOptions {
   speedMeta?: { challengeId: string };
   /** Sudoku diagonal 9x9: validación incluye diagonales principales. */
   diagonal?: boolean;
+  /** Sin presión: sin timer real, errores/pistas ilimitados, sin envío al servidor al ganar. */
+  zen?: boolean;
+  /** Desafío compartido: al ganar se llama `sudoku-submit-challenge` en lugar del flujo normal. */
+  challengeMeta?: {
+    challengeId: string;
+    getGuestName: () => string | undefined;
+  };
 }
 
 export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
@@ -87,6 +94,8 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   const dailyMeta = opts.dailyMeta;
   const speedMeta = opts.speedMeta;
   const diagonal = opts.diagonal ?? false;
+  const zen = opts.zen ?? false;
+  const challengeMeta = opts.challengeMeta;
   const applyBoardErrors = diagonal ? updateAllErrorsDiagonal : updateAllErrors;
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [solution, setSolution] = useState<number[][]>(() =>
@@ -113,6 +122,9 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   const [initialPuzzleNumbers, setInitialPuzzleNumbers] = useState<number[][] | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [challengeFinish, setChallengeFinish] = useState<{ rank: number; total: number } | null>(
+    null
+  );
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onWinRef = useRef(opts.onWin);
   onWinRef.current = opts.onWin;
@@ -156,6 +168,11 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
   }, [persist]);
 
   useEffect(() => {
+    if (zen) {
+      if (tickRef.current) clearInterval(tickRef.current);
+      tickRef.current = null;
+      return;
+    }
     if (isCompleted || isPaused) {
       if (tickRef.current) clearInterval(tickRef.current);
       tickRef.current = null;
@@ -167,7 +184,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [isCompleted, isPaused]);
+  }, [isCompleted, isPaused, zen]);
 
   const applySeed = useCallback(
     (seed: { puzzle: number[][]; solution: number[][]; difficulty: Difficulty }) => {
@@ -187,6 +204,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         setHintsUsed(0);
         setHistory([]);
         setHintCoach(null);
+        setChallengeFinish(null);
         const p = seed.puzzle.map((r) => [...r]);
         setInitialPuzzleNumbers(p);
         setSolveAnalysis(solvePuzzleLogically(p));
@@ -203,6 +221,10 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         return;
       }
       if (speedMeta && opts.seeded) {
+        applySeed(opts.seeded);
+        return;
+      }
+      if (challengeMeta && opts.seeded) {
         applySeed(opts.seeded);
         return;
       }
@@ -224,13 +246,14 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         setHintsUsed(0);
         setHistory([]);
         setHintCoach(null);
+        setChallengeFinish(null);
         const p = gen.puzzle.map((r) => [...r]);
         setInitialPuzzleNumbers(p);
         setSolveAnalysis(solvePuzzleLogically(p));
         setGenerating(false);
       });
     },
-    [applyBoardErrors, applySeed, dailyMeta, difficulty, opts.seeded, speedMeta]
+    [applyBoardErrors, applySeed, challengeMeta, dailyMeta, difficulty, opts.seeded, speedMeta]
   );
 
   const loadGame = useCallback(() => {
@@ -336,7 +359,7 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
       });
       await showSubmitResult(result, refreshProfile);
     },
-    [dailyMeta, difficulty, refreshProfile, solution, speedMeta, timerSeconds, user]
+    [challengeMeta, dailyMeta, difficulty, refreshProfile, solution, speedMeta, timerSeconds, user, zen]
   );
 
   useEffect(() => {
@@ -466,11 +489,12 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     mistakes,
     selectedCell,
     solution,
+    zen,
   ]);
 
   const placeNumber = useCallback(
     (n: number) => {
-      if (isCompleted || isPaused || mistakes >= MAX_MISTAKES) return;
+      if (isCompleted || isPaused || (!zen && mistakes >= MAX_MISTAKES)) return;
       if (!selectedCell) return;
       const { row, col } = selectedCell;
       if (board[row][col].isGiven) return;
@@ -657,9 +681,11 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
     useHint,
     setSelectedCell,
     filledCount,
-    maxMistakes: MAX_MISTAKES,
-    hintsRemaining: MAX_HINTS - hintsUsed,
-    isOutOfLives: mistakes >= MAX_MISTAKES && !isCompleted,
+    maxMistakes: zen ? 9999 : MAX_MISTAKES,
+    hintsRemaining: zen ? 9999 : MAX_HINTS - hintsUsed,
+    isOutOfLives: !zen && mistakes >= MAX_MISTAKES && !isCompleted,
+    zen,
+    challengeFinish,
     nextHintLevel:
       selectedCell &&
       hintChain &&

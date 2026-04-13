@@ -6,6 +6,7 @@ import { ActivityCalendar } from "@/components/sudoku/ActivityCalendar";
 import { Navbar } from "@/components/Navbar";
 import { ProfileSessionChart } from "@/components/sudoku/ProfileSessionChart";
 import { UnlockProgressSection } from "@/components/sudoku/UnlockProgressSection";
+import { StreakRewards } from "@/components/sudoku/StreakRewards";
 import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -153,6 +154,11 @@ export default function Profile() {
         </div>
 
         <XPBar progress={progress} rank={rank} className="max-w-md" />
+
+        <section className="glass rounded-xl border border-border p-4">
+          <h2 className="mb-3 font-serif text-xl text-primary">Tu racha</h2>
+          <StreakRewards streakDays={progress.streakDays} />
+        </section>
 
         {hintMonth.total > 0 && (
           <div className="glass rounded-xl border border-border p-4 text-sm">

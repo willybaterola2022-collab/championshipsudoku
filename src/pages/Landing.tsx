@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Leaf, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { GameResult } from "@/components/sudoku/GameResult";
 import { NumPad } from "@/components/sudoku/NumPad";
 import { ProgressBar } from "@/components/sudoku/ProgressBar";
 import { StreakCounter } from "@/components/sudoku/StreakCounter";
+import { StreakRewards } from "@/components/sudoku/StreakRewards";
 import { SudokuBoard } from "@/components/sudoku/SudokuBoard";
 import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
 import { XPBar } from "@/components/sudoku/XPBar";
@@ -23,6 +24,7 @@ import { usePlayerProgress } from "@/hooks/usePlayerProgress";
 import { useWinPostGameStats } from "@/hooks/useWinPostGameStats";
 import { useSudokuGame } from "@/hooks/useSudokuGame";
 import { useSudokuKeyboard } from "@/hooks/useSudokuKeyboard";
+import { supabase } from "@/integrations/supabase/client";
 import { DIFFICULTY_CONFIG, type Difficulty } from "@/lib/sudoku/types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +42,7 @@ export default function Landing() {
   });
   const [theme, setTheme] = useState<BoardThemeId>(() => readBoardTheme());
   const [helpOpen, setHelpOpen] = useState(false);
+  const [challengeBusy, setChallengeBusy] = useState(false);
   const { data: featuredRows, isLoading: featuredLoading } = useFeaturedPuzzles(5);
 
   useEffect(() => {
@@ -68,17 +71,37 @@ export default function Landing() {
     writeBoardTheme(id);
   };
 
-  const shareResult = async () => {
-    const text = `Championship Sudoku — ${game.difficulty} en ${Math.floor(game.timerSeconds / 60)}:${(game.timerSeconds % 60).toString().padStart(2, "0")}`;
+  const shareTimeLabel = `${Math.floor(game.timerSeconds / 60)}:${(game.timerSeconds % 60).toString().padStart(2, "0")}`;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const playedToday = progress.lastPlayedDate === todayStr;
+
+  const createChallengeLink = async () => {
+    if (!game.initialPuzzleNumbers) {
+      toast.error("No hay puzzle inicial para desafiar.");
+      return;
+    }
+    setChallengeBusy(true);
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "Championship Sudoku", text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        toast.message("Copiado al portapapeles");
+      const { data, error } = await supabase.functions.invoke<{ url?: string }>("sudoku-create-challenge", {
+        body: {
+          puzzle: JSON.stringify(game.initialPuzzleNumbers),
+          solution: JSON.stringify(game.solution),
+          difficulty: game.difficulty,
+          variant: "classic",
+          time_ms: game.timerSeconds * 1000,
+          errors: game.mistakes,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        await navigator.clipboard.writeText(data.url);
+        toast.success("Link copiado — envialo a tu amigo");
       }
-    } catch {
-      toast.error("No se pudo compartir");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el desafío");
+    } finally {
+      setChallengeBusy(false);
     }
   };
 
@@ -123,12 +146,21 @@ export default function Landing() {
               disabled={game.generating}
             />
           </div>
-          <Link
-            to="/play"
-            className="glass hidden self-start rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary transition hover:border-primary/50 hover:bg-primary/10 sm:inline-flex"
-          >
-            Vista amplia
-          </Link>
+          <div className="flex flex-wrap gap-2 self-start">
+            <Link
+              to="/play?mode=zen"
+              className="glass inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-sm font-medium text-emerald-200/90 transition hover:border-emerald-500/50"
+            >
+              <Leaf className="h-4 w-4" aria-hidden />
+              Modo Zen
+            </Link>
+            <Link
+              to="/play"
+              className="glass hidden rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary transition hover:border-primary/50 hover:bg-primary/10 sm:inline-flex"
+            >
+              Vista amplia
+            </Link>
+          </div>
         </div>
 
         <section className="space-y-3" aria-labelledby="modes-heading">
@@ -287,9 +319,12 @@ export default function Landing() {
         </div>
 
         <div className="flex flex-col gap-4 border-t border-border/40 pt-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
-            <StreakCounter days={progress.streakDays} />
-            <DailyCountdown />
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+              <StreakCounter days={progress.streakDays} playedToday={playedToday} />
+              <DailyCountdown />
+            </div>
+            <StreakRewards streakDays={progress.streakDays} compact />
           </div>
           <XPBar progress={progress} rank={rank} className="w-full sm:max-w-xs" />
         </div>
@@ -305,7 +340,16 @@ export default function Landing() {
         mistakes={game.mistakes}
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
-        onShare={shareResult}
+        shareVisualData={{
+          difficulty: DIFFICULTY_CONFIG[game.difficulty].label,
+          timeFormatted: shareTimeLabel,
+          errors: game.mistakes,
+          percentile: winStats.percentile,
+          streak: progress.streakDays,
+          variant: "Clásico",
+        }}
+        onChallengeFriend={createChallengeLink}
+        challengeBusy={challengeBusy}
         percentile={winStats.percentile}
         showPersonalBestBadge={winStats.isPersonalBest}
       />

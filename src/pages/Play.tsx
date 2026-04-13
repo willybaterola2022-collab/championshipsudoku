@@ -46,13 +46,15 @@ function PlaySession({
   variant,
   seeded,
   sessionId,
+  zenMode,
 }: {
   variant: PlayVariant;
   seeded?: SeededPuzzle | null;
   sessionId: number;
+  zenMode: boolean;
 }) {
   const { user, profile } = useAuth();
-  const { recordWin } = usePlayerProgress();
+  const { recordWin, progress } = usePlayerProgress();
   const { data: unlockRows } = useUnlocks();
 
   const lockedDifficulties = useMemo(() => {
@@ -67,10 +69,14 @@ function PlaySession({
     return m;
   }, [user, profile?.level, unlockRows]);
 
+  const [challengeBusy, setChallengeBusy] = useState(false);
+
   const game = useSudokuGame({
-    onWin: recordWin,
+    onWin: zenMode ? undefined : recordWin,
     diagonal: variant === "diagonal",
     seeded: seeded ?? undefined,
+    zen: zenMode,
+    persistenceKey: zenMode ? "sudoku-zen-game-state" : undefined,
   });
 
   const winStats = useWinPostGameStats({
@@ -109,23 +115,46 @@ function PlaySession({
     [theme]
   );
 
-  const shareResult = async () => {
-    const text = `Championship Sudoku — ${game.difficulty}`;
+  const shareTimeLabel = `${Math.floor(game.timerSeconds / 60)}:${(game.timerSeconds % 60).toString().padStart(2, "0")}`;
+
+  const createChallengeLink = async () => {
+    if (!game.initialPuzzleNumbers) {
+      toast.error("No hay puzzle inicial para desafiar.");
+      return;
+    }
+    setChallengeBusy(true);
     try {
-      if (navigator.share) await navigator.share({ title: "Championship Sudoku", text });
-      else {
-        await navigator.clipboard.writeText(text);
-        toast.message("Copiado al portapapeles");
+      const { data, error } = await supabase.functions.invoke<{ url?: string }>("sudoku-create-challenge", {
+        body: {
+          puzzle: JSON.stringify(game.initialPuzzleNumbers),
+          solution: JSON.stringify(game.solution),
+          difficulty: game.difficulty,
+          variant: variant === "diagonal" ? "diagonal" : "classic",
+          time_ms: game.timerSeconds * 1000,
+          errors: game.mistakes,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        await navigator.clipboard.writeText(data.url);
+        toast.success("Link copiado — envialo a tu amigo");
       }
-    } catch {
-      toast.error("No se pudo compartir");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el desafío");
+    } finally {
+      setChallengeBusy(false);
     }
   };
 
   const autoNotesUnlocked = !user || (profile?.level ?? 1) >= 2;
 
+  const lockedForSelector = zenMode ? {} : lockedDifficulties;
+
   return (
-    <div className={cn("min-h-screen bg-background text-foreground", themeClass)} data-session={sessionId}>
+    <div
+      className={cn("min-h-screen bg-background text-foreground", themeClass, zenMode && "zen-mode")}
+      data-session={sessionId}
+    >
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/90 backdrop-blur-xl">
         <div className="container flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
@@ -137,32 +166,38 @@ function PlaySession({
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              {DIFFICULTY_CONFIG[game.difficulty].label}
+              {zenMode ? "Zen" : DIFFICULTY_CONFIG[game.difficulty].label}
             </span>
-            <Timer
-              seconds={game.timerSeconds}
-              isPaused={game.isPaused}
-              onTogglePause={game.togglePause}
-              disabled={game.isCompleted}
-            />
-            <span className="text-sm text-muted-foreground">
-              Errores:{" "}
-              <span className="font-semibold text-foreground">
-                {game.mistakes}/{game.maxMistakes}
-              </span>
-            </span>
+            {!zenMode ? (
+              <>
+                <Timer
+                  seconds={game.timerSeconds}
+                  isPaused={game.isPaused}
+                  onTogglePause={game.togglePause}
+                  disabled={game.isCompleted}
+                />
+                <span className="text-sm text-muted-foreground">
+                  Errores:{" "}
+                  <span className="font-semibold text-foreground">
+                    {game.mistakes}/{game.maxMistakes}
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">Sin tiempo · errores libres</span>
+            )}
           </div>
           <DifficultySelector
             value={game.difficulty}
             onChange={(d) => {
-              if (lockedDifficulties[d] != null && (profile?.level ?? 1) < lockedDifficulties[d]!) {
-                toast.message(`Desbloqueá nivel ${lockedDifficulties[d]}`);
+              if (lockedForSelector[d] != null && (profile?.level ?? 1) < lockedForSelector[d]!) {
+                toast.message(`Desbloqueá nivel ${lockedForSelector[d]}`);
                 return;
               }
               game.newGame(d);
             }}
             disabled={game.generating}
-            locked={lockedDifficulties}
+            locked={lockedForSelector}
           />
         </div>
       </header>
@@ -188,7 +223,7 @@ function PlaySession({
             diagonal={variant === "diagonal"}
           />
 
-          <ProgressBar filled={game.filledCount} />
+          {!zenMode ? <ProgressBar filled={game.filledCount} /> : null}
 
           <GameControls
             canUndo={game.history.length > 0}
@@ -197,7 +232,7 @@ function PlaySession({
             onErase={game.eraseCell}
             onToggleNotes={game.toggleNotes}
             onHint={() => void game.useHint()}
-            hintsRemaining={game.hintsRemaining}
+            hintsRemaining={zenMode ? 9999 : game.hintsRemaining}
             hintLoading={game.hintLoading}
             hintLevelNext={game.nextHintLevel}
             disabled={game.isCompleted || game.mistakes >= game.maxMistakes}
@@ -219,7 +254,21 @@ function PlaySession({
         mistakes={game.mistakes}
         hintsUsed={game.hintsUsed}
         onClose={() => game.newGame(game.difficulty)}
-        onShare={shareResult}
+        zenMode={zenMode}
+        shareVisualData={
+          !zenMode
+            ? {
+                difficulty: DIFFICULTY_CONFIG[game.difficulty].label,
+                timeFormatted: shareTimeLabel,
+                errors: game.mistakes,
+                percentile: winStats.percentile,
+                streak: progress.streakDays,
+                variant: variant === "diagonal" ? "Diagonal" : "Clásico",
+              }
+            : null
+        }
+        onChallengeFriend={zenMode ? undefined : createChallengeLink}
+        challengeBusy={challengeBusy}
         percentile={winStats.percentile}
         showPersonalBestBadge={winStats.isPersonalBest}
         techniquesLine={techniquesLine || undefined}
@@ -241,6 +290,7 @@ export default function Play() {
   const { data: unlockRows } = useUnlocks();
   const [searchParams, setSearchParams] = useSearchParams();
   const variant = (searchParams.get("variant") as PlayVariant) || "classic";
+  const zenMode = searchParams.get("mode") === "zen";
 
   const diagonalRequiredLevel = useMemo(() => {
     let req = 5;
@@ -437,7 +487,7 @@ export default function Play() {
         </div>
       </div>
 
-      <PlaySession key={sessionId} variant={variant} seeded={seeded} sessionId={sessionId} />
+      <PlaySession key={sessionId} variant={variant} seeded={seeded} sessionId={sessionId} zenMode={zenMode} />
     </>
   );
 }

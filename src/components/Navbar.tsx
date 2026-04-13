@@ -6,7 +6,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@radix-ui/react-dropdown-menu";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Leaf } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { SoundToggle } from "@/components/SoundToggle";
 import { useAuth } from "@/contexts/AuthContext";
@@ -82,6 +82,13 @@ export function Navbar() {
                   Killer
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem asChild className="cursor-pointer rounded-lg">
+                <Link to="/play?mode=zen" className="outline-none inline-flex items-center gap-2">
+                  <Leaf className="h-3.5 w-3.5 opacity-80" aria-hidden />
+                  Modo Zen
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <NavLink
@@ -94,6 +101,17 @@ export function Navbar() {
             }
           >
             Diario
+          </NavLink>
+          <NavLink
+            to="/tutorial"
+            className={({ isActive }) =>
+              cn(
+                "rounded-full px-3 py-1.5 transition-colors",
+                isActive ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              )
+            }
+          >
+            Aprender
           </NavLink>
           <NavLink
             to="/speed"

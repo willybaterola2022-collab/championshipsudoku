@@ -61,4 +61,14 @@ test.describe("smoke", () => {
     await page.goto("/speed");
     await expect(page.getByRole("heading", { name: /speed challenge/i })).toBeVisible({ timeout: 15_000 });
   });
+
+  test("ruta /tutorial carga", async ({ page }) => {
+    await page.goto("/tutorial");
+    await expect(page.getByRole("heading", { name: /aprender técnicas/i })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("ruta /play?mode=zen muestra modo zen", async ({ page }) => {
+    await page.goto("/play?mode=zen");
+    await expect(page.getByText(/sin tiempo/i).first()).toBeVisible({ timeout: 15_000 });
+  });
 });

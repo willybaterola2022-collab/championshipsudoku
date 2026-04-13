@@ -155,3 +155,11 @@
   background: hsla(43, 90%, 55%, 0.08);
   border-color: hsla(43, 90%, 55%, 0.15);
 }
+
+/* Modo Zen — menos brillo en bordes */
+.zen-mode .glow-gold {
+  box-shadow: none;
+}
+.zen-mode {
+  --sudoku-border-thick: 220 12% 25%;
+}

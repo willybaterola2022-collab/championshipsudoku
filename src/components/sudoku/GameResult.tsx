@@ -1,7 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Share2, X } from "lucide-react";
+import { Share2, Swords, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SolveStep } from "@/lib/sudoku/solverDetailed";
+import { shareResultImage, type ShareImageData } from "@/components/sudoku/ShareImage";
 
 interface GameResultProps {
   open: boolean;
@@ -10,6 +11,13 @@ interface GameResultProps {
   hintsUsed: number;
   onClose: () => void;
   onShare?: () => void;
+  /** Si está definido, "Compartir" genera imagen PNG + Web Share / portapapeles. */
+  shareVisualData?: ShareImageData | null;
+  /** Crear link de desafío (padre llama a la edge function). */
+  onChallengeFriend?: () => void | Promise<void>;
+  challengeBusy?: boolean;
+  /** Modo zen: modal mínimo sin ranking ni compartir desafío. */
+  zenMode?: boolean;
   /** Contenido opcional bajo el resumen (p. ej. enlace al ranking diario). */
   footerExtra?: ReactNode;
   /** Línea opcional (p. ej. comparación con mejor tiempo del día). */
@@ -44,6 +52,10 @@ export function GameResult({
   hintsUsed,
   onClose,
   onShare,
+  shareVisualData,
+  onChallengeFriend,
+  challengeBusy,
+  zenMode,
   footerExtra,
   compareLine,
   percentile,
@@ -57,6 +69,54 @@ export function GameResult({
   moveCount,
   optimalSteps,
 }: GameResultProps) {
+  const handleShareClick = async () => {
+    if (shareVisualData) {
+      const text = `Championship Sudoku — ${shareVisualData.difficulty} en ${shareVisualData.timeFormatted} · ${shareVisualData.errors} errores\nchampionshipsudoku.vercel.app`;
+      await shareResultImage(shareVisualData, text);
+      return;
+    }
+    onShare?.();
+  };
+
+  if (zenMode) {
+    return (
+      <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" />
+          <Dialog.Content
+            className="glass-strong fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border p-6 shadow-2xl focus:outline-none"
+            onPointerDownOutside={(e) => e.preventDefault()}
+          >
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-full p-2 text-muted-foreground hover:bg-muted"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </Dialog.Close>
+            <Dialog.Title asChild>
+              <h2 className="font-serif text-3xl text-gradient-gold">Completado</h2>
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-muted-foreground">
+              Modo Zen — sin tiempo ni puntuación. Solo calma.
+            </Dialog.Description>
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-medium"
+              >
+                Otro puzzle
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    );
+  }
+
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
@@ -159,16 +219,27 @@ export function GameResult({
           ) : null}
           {footerExtra ? <div className="mt-6">{footerExtra}</div> : null}
           <div className="mt-8 flex flex-wrap gap-3">
-            {onShare && (
+            {(shareVisualData || onShare) && (
               <button
                 type="button"
-                onClick={onShare}
+                onClick={() => void handleShareClick()}
                 className="inline-flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 px-4 py-3 text-sm font-medium text-primary"
               >
                 <Share2 className="h-4 w-4" />
                 Compartir
               </button>
             )}
+            {onChallengeFriend ? (
+              <button
+                type="button"
+                disabled={challengeBusy}
+                onClick={() => void onChallengeFriend()}
+                className="inline-flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-200 disabled:opacity-60"
+              >
+                <Swords className="h-4 w-4" />
+                {challengeBusy ? "Creando…" : "Desafiar a un amigo"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
