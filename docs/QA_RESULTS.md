@@ -96,7 +96,7 @@
 
 **Regresión corregida:** el flujo `challengeMeta` + early return `zen` en `finalizeWin` había quedado sin el bloque RPC; se restauró junto con la idempotencia.
 
-**Commit:** `a72b9f7` — `audit: visual QA + accessibility + performance`
+**Commit:** `42ccb7e` — `audit: visual QA + accessibility + performance`
 
 ---
 
