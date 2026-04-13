@@ -203,16 +203,18 @@ function PlaySession({
       </header>
 
       <main className="container space-y-6 px-4 pb-12 pt-6">
-        <BoardThemeSelector value={theme} onChange={(id) => { setTheme(id); writeBoardTheme(id); }} />
+        {!zenMode ? (
+          <BoardThemeSelector value={theme} onChange={(id) => { setTheme(id); writeBoardTheme(id); }} />
+        ) : null}
 
-        {game.solveAnalysis ? (
+        {!zenMode && game.solveAnalysis ? (
           <PuzzleTechniqueBadge
             levelLabel={`lógica ${game.solveAnalysis.difficultyLabel}`}
             summary={techniquesLine ? `Técnicas: ${techniquesLine}` : "Puzzle analizado"}
           />
         ) : null}
 
-        <HintCoachBanner state={game.hintCoach} />
+        {!zenMode ? <HintCoachBanner state={game.hintCoach} /> : null}
 
         <div className="sudoku-play-layout flex flex-col gap-4">
           <SudokuBoard
