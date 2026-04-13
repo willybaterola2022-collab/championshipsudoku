@@ -26,24 +26,24 @@ export function generateShareImage(data: ShareImageData): string {
   ctx.strokeRect(10, 10, 580, 380);
 
   ctx.fillStyle = "#d4a843";
-  ctx.font = "bold 28px Georgia, 'Times New Roman', serif";
+  ctx.font = "bold 28px 'Playfair Display', Georgia, 'Times New Roman', serif";
   ctx.textAlign = "center";
   ctx.fillText("Championship Sudoku", 300, 60);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "20px system-ui, sans-serif";
+  ctx.font = "20px Inter, system-ui, sans-serif";
   ctx.fillText(`${data.difficulty} · ${data.variant}`, 300, 110);
-  ctx.font = "bold 48px system-ui, sans-serif";
+  ctx.font = "bold 48px Inter, system-ui, sans-serif";
   ctx.fillText(data.timeFormatted, 300, 180);
-  ctx.font = "18px system-ui, sans-serif";
+  ctx.font = "18px Inter, system-ui, sans-serif";
   ctx.fillText(`${data.errors} errores · Racha ${data.streak} días`, 300, 220);
-  if (data.percentile != null) {
+  if (data.percentile != null && data.percentile !== undefined) {
     ctx.fillStyle = "#d4a843";
     ctx.fillText(`Más rápido que el ${data.percentile}% de los jugadores`, 300, 260);
   }
 
-  ctx.fillStyle = "#888888";
-  ctx.font = "14px system-ui, sans-serif";
+  ctx.fillStyle = "#666666";
+  ctx.font = "14px Inter, system-ui, sans-serif";
   ctx.fillText("championshipsudoku.vercel.app", 300, 360);
 
   return canvas.toDataURL("image/png");
