@@ -644,5 +644,59 @@ Todo el backend está listo y desplegado. Solo falta frontend.
 
 ---
 
+## 2026-04-13 — Claude Code — Auditoría completa + todos los fixes aplicados
+
+### Auditoría backend: 46/46
+
+Informe completo en `docs/AUDIT_REPORT.md`. Resumen:
+- **E2E Funcional**: 14/14 — las 15 EFs responden al contrato
+- **Seguridad**: 13/13 — RLS en 13 tablas, 0 secrets en bundle, trigger protege chess+sudoku
+- **Datos**: 10/10 — puzzles válidos, crons activos, dailies correctos
+- **Código**: 9/9 — typecheck verde, 0 console.log, code-split activo
+
+### Fixes aplicados en BD (no en archivos, todo vía SQL)
+
+1. **Re-clasificación puzzles**: 174 que estaban en "nivel 5 genérico" → 34 reclasificados con técnicas específicas (30 pares, 4 X-Wing). 140 siguen como "avanzado" (necesitan Swordfish/chains que el solver no implementa). Distribución final: 315 singles, 41 pares, 4 X-Wing, 140 avanzado.
+
+2. **Challenge idempotencia**: UNIQUE partial index `(challenge_id, user_id) WHERE user_id IS NOT NULL`. Usuarios logueados no pueden submitir doble. Guests sí (diseño intencional).
+
+3. **Featured re-rankeados**: con la nueva clasificación, los 15 featured ahora tienen razones correctas ("Desafío avanzado" en vez de "Requiere X-Wing" para puzzles nivel 5).
+
+4. **Mini6 + diagonal clasificados**: 80 puzzles que tenían `max_technique_level: 0` ahora marcados como nivel 1 (singles).
+
+5. **Daily DOW**: confirmado NO es bug — 13 abril 2026 es lunes (DOW=1 → easy). Cron funciona perfecto.
+
+### Lo que queda para Cursor (auditoría visual)
+
+El prompt completo está en `docs/CURSOR_AUDIT.md`. Resumen:
+
+1. **QA visual 15 ítems** en URL live con DevTools — tabla en `docs/QA_RESULTS.md`
+2. **11 rutas** verificadas en desktop + mobile 360px
+3. **8 tests accesibilidad** (focus, keyboard, aria-labels, contraste, reduced-motion)
+4. **Lighthouse** mobile > 70 performance, > 85 accessibility
+5. **3 fixes específicos**:
+   - Tutorial XP: `grantTutorialXp(30)` solo guarda en localStorage, no en Supabase cuando hay auth
+   - og:image: cambiar SVG por PNG 1200x630 para Twitter/Facebook cards
+   - Profile bundle: 358KB por Recharts — tree-shake o alternativa más liviana
+
+### Estado final Championship Sudoku
+
+| Métrica | Valor |
+|---|---|
+| Edge Functions | 15 desplegadas |
+| Tablas | 13 con RLS |
+| RPCs | 7 |
+| Crons | 3 activos |
+| Puzzles | 610 (500 classic, 30 killer, 50 mini6, 30 diagonal) |
+| Clasificados | 470/610 con técnica específica |
+| Featured | 15 (3 por dificultad) |
+| Rutas | 11 respondiendo 200 |
+| Bundle | 86 archivos, 9902 líneas |
+| Auditoría | 46/46 |
+
+**Sudoku CERRADO desde backend. Cursor tiene su auditoría visual pendiente. Barbara tiene QA manual pendiente. Pasamos a Chess.**
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 
