@@ -33,6 +33,21 @@ interface ChallengeRow {
   creator_errors: number | null;
 }
 
+function mapRpcChallengeRow(o: Record<string, unknown>): ChallengeRow | null {
+  const id = o.challenge_id ?? o.id;
+  if (id == null) return null;
+  return {
+    id: String(id),
+    code: String(o.code ?? ""),
+    puzzle: (o.puzzle as string | number[][]) ?? "[]",
+    solution: (o.solution as string | number[][]) ?? "[]",
+    difficulty: String(o.difficulty ?? "medium"),
+    variant: (o.variant as string | null) ?? "classic",
+    creator_time_ms: o.creator_time_ms != null ? Number(o.creator_time_ms) : null,
+    creator_errors: o.creator_errors != null ? Number(o.creator_errors) : null,
+  };
+}
+
 function ChallengeSession({
   row,
   seeded,
@@ -220,6 +235,16 @@ export default function Challenge() {
     queryKey: ["sudoku-challenge", code],
     enabled: Boolean(code),
     queryFn: async () => {
+      const { data: rpcRaw, error: rpcErr } = await supabase.rpc("get_sudoku_challenge", {
+        p_code: code!,
+      });
+      if (!rpcErr && rpcRaw != null) {
+        const payload = Array.isArray(rpcRaw) ? rpcRaw[0] : rpcRaw;
+        if (payload && typeof payload === "object") {
+          const mapped = mapRpcChallengeRow(payload as Record<string, unknown>);
+          if (mapped?.id) return mapped;
+        }
+      }
       const { data, error: e } = await supabase
         .from("sudoku_challenges")
         .select("id, code, puzzle, solution, difficulty, variant, creator_time_ms, creator_errors")
