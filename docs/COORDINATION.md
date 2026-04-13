@@ -609,5 +609,40 @@ Todo el backend está listo y desplegado. Solo falta frontend.
 
 ---
 
+## 2026-04-13 — Cursor — CURSOR_NEXT (A–G) + modos Landing/Navbar + e2e
+
+**Contexto**: La entrada Claude Code anterior listaba frontend pendiente (hint 3 niveles, post-game, weekly missions ya existían en repo; Speed/Daily; etc.). Este bloque documenta **qué quedó cubierto** respecto a `docs/CURSOR_NEXT.md` y recomendaciones UX posteriores.
+
+### Implementado (frontend `championshipsudoku`)
+
+| Área | Detalle |
+|------|---------|
+| **A–C** | Técnicas en selector + badge tablero (`PuzzleTechniqueBadge`); filtro por técnica en `/play` (`contains` en padre); hint 3 niveles con `HintCoachBanner` + `logHintUsage` → Profile; `GameResult` con análisis/replay (`solverDetailed`), pasos vs óptimo. |
+| **D** | `useUnlocks` → RPC `get_sudoku_unlocks` (`p_user_level`); `UnlockProgressSection` en Profile; candados dificultad + diagonal (tabs `/play`); sin auth = sin candados. |
+| **E** | `useFeaturedPuzzles` → RPC `get_featured_sudoku_puzzles`; grid Destacados en Landing; `?loadFeatured=<uuid>` en `/play`; badge “Puzzle destacado” en Daily si el puzzle está en destacados. |
+| **F** | Variante diagonal (tablero + validación existente); **Mini 6×6** — `useMiniSudokuGame`, `mini6Validator` / `mini6RegionFilled` / `autoNotesMini6`, ruta `/play/mini`, `SudokuBoard`/`NumPad`/`useSudokuKeyboard` con `gridSize` 6. |
+| **G** | Auto-notas (Wand); `ActivityCalendar` + `ProfileSessionChart` (Recharts) en Profile. |
+| **UI** | Landing: sección **Modos de juego** con miniaturas SVG (`GameModePreview`); móvil: scroll horizontal `snap-x`; desktop: grid. Navbar: menú **Jugar** (Radix) → vista amplia, diagonal, mini, killer. `BoardThemeSelector`: pills más legibles. |
+| **E2E** | `e2e/smoke.spec.ts`: `beforeEach` pone `localStorage` `sudoku-first-visit-help-v1` para no abrir HowToPlayDialog (overlay bloqueaba clics); cobertura modos, navbar, `/play/mini`. **7 passed** (Chromium). |
+| **Git / deploy** | Push a `main`; producción `https://championshipsudoku.vercel.app` verificada HTTP 200 (`/`, `/play`, `/play/mini`). |
+
+### Zona no tocada (reglas del proyecto)
+
+- `supabase/**`, `src/lib/sudokuService.ts`, `AuthContext.tsx`, `generator.ts`, `validator.ts` — sin cambios; `solver.ts` solo importado.
+
+### Si algo falla en prod (check rápido)
+
+- Confirmar forma real de RPCs: `get_sudoku_unlocks({ p_user_level })`, `get_featured_sudoku_puzzles({ p_limit })` — si el nombre del parámetro difiere, ajustar hook o anotar bug backend.
+- Mini 6×6: submit sigue usando `variant: "classic"` en `sudokuService` (contrato actual); tablero 6×6 en payload — validar que `sudoku-save-game` acepta dimensiones o documentar.
+
+### Pendiente fuera de este sprint
+
+- QA manual Barbara: PWA, og:image, contraste tema neon (ítems ya listados en entradas previas Claude/Cursor).
+- **Claude**: solo si hace falta variante `mini6` en contrato de save o ajuste RPC.
+
+**Próximo owner**: Barbara (QA live) + siguiente feature según roadmap (p. ej. Wordle / hub).
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 
