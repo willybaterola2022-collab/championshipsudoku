@@ -698,5 +698,18 @@ El prompt completo está en `docs/CURSOR_AUDIT.md`. Resumen:
 
 ---
 
+## 2026-04-13 — Cursor — QA visual + fixes audit (CURSOR_AUDIT)
+
+**Qué se hizo**:
+- `docs/QA_RESULTS.md`: resultados QA (15 ítems, 11 rutas, a11y, Lighthouse, bundle Profile).
+- Fix tutorial XP: `sudoku-tutorial-xp-pending` en `localStorage` + línea en `XPBar` (sync servidor **pendiente** — necesita EF o actualización de `profiles` desde backend).
+- Fix challenge: idempotencia con `challenge-{id}-submitted` + restauración del bloque `challengeMeta`/`zen` en `finalizeWin` (regresión).
+- Fix OG: `public/og-image.png` 1200×630 + meta PNG en `index.html`.
+
+**Qué necesita backend**:
+- Endpoint o RPC para volcar XP tutorial pendiente al perfil autenticado (o job que lea flag y sume XP).
+
+---
+
 <!-- Próximas entradas abajo. Formato: ## YYYY-MM-DD — <agent> — <title> -->
 

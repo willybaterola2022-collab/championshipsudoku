@@ -11,6 +11,17 @@ import {
 } from "@/lib/sudoku/types";
 
 const STORAGE_KEY = "sudoku-player-progress";
+/** XP de lecciones de tutorial acumulado en cliente (sesión iniciada; sync servidor pendiente). */
+const TUTORIAL_XP_PENDING_KEY = "sudoku-tutorial-xp-pending";
+
+function readTutorialXpPending(): number {
+  try {
+    const n = parseInt(localStorage.getItem(TUTORIAL_XP_PENDING_KEY) || "0", 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export interface AchievementState {
   id: string;
@@ -128,11 +139,16 @@ function profileToProgress(
 export function usePlayerProgress() {
   const { user, profile, loading: authLoading } = useAuth();
   const [localProgress, setLocalProgress] = useState<PlayerProgressState>(load);
+  const [tutorialXpPending, setTutorialXpPending] = useState(readTutorialXpPending);
 
   useEffect(() => {
     if (user) return;
     save(localProgress);
   }, [user, localProgress]);
+
+  useEffect(() => {
+    setTutorialXpPending(readTutorialXpPending());
+  }, [user?.id]);
 
   const { data: sessionDifficulty, isError: sessionDifficultyError } = useQuery({
     queryKey: ["sudoku-session-difficulties", user?.id],
@@ -258,11 +274,20 @@ export function usePlayerProgress() {
     [user]
   );
 
-  /** +30 XP por lección de tutorial: persiste local solo sin sesión; con sesión muestra aviso (sin tocar `sudokuService`). */
+  /** +30 XP por lección: invitados actualizan progreso local; con sesión se guarda en `sudoku-tutorial-xp-pending` hasta sync backend. */
   const grantTutorialXp = useCallback(
     (amount: number) => {
       if (user) {
-        toast.success(`+${amount} XP de práctica (tutorial)`);
+        const next = readTutorialXpPending() + amount;
+        try {
+          localStorage.setItem(TUTORIAL_XP_PENDING_KEY, String(next));
+        } catch {
+          /* ignore */
+        }
+        setTutorialXpPending(next);
+        toast.success(
+          `+${amount} XP de tutorial guardados (${next} XP pendientes de sincronizar con el servidor)`
+        );
         return;
       }
       setLocalProgress((prev) => {
@@ -293,6 +318,7 @@ export function usePlayerProgress() {
     rank,
     recordWin,
     grantTutorialXp,
+    tutorialXpPending,
     isServerProgress: Boolean(user && profile),
     authLoading,
     sessionDifficultyError,

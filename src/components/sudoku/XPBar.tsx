@@ -6,9 +6,11 @@ interface XPBarProps {
   progress: PlayerProgressState;
   rank: Rank;
   className?: string;
+  /** XP de tutorial guardado en cliente (pendiente de API). */
+  tutorialXpPending?: number;
 }
 
-export function XPBar({ progress, rank, className }: XPBarProps) {
+export function XPBar({ progress, rank, className, tutorialXpPending = 0 }: XPBarProps) {
   const xp = Number.isFinite(progress.xp) ? progress.xp : 0;
   const next = Number.isFinite(progress.xpToNext) && progress.xpToNext > 0 ? progress.xpToNext : 1;
   const pct = Math.min(100, Math.round((xp / next) * 100));
@@ -25,6 +27,11 @@ export function XPBar({ progress, rank, className }: XPBarProps) {
       <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
       </div>
+      {tutorialXpPending > 0 ? (
+        <p className="text-[10px] leading-tight text-amber-200/90">
+          +{tutorialXpPending} XP tutorial (local, pendiente sync)
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -31,7 +31,7 @@ const HOWTO_KEY = "sudoku-first-visit-help-v1";
 
 export default function Landing() {
   const { user } = useAuth();
-  const { progress, rank, recordWin } = usePlayerProgress();
+  const { progress, rank, recordWin, tutorialXpPending } = usePlayerProgress();
   const game = useSudokuGame({ onWin: recordWin });
   const winStats = useWinPostGameStats({
     userId: user?.id,
@@ -324,7 +324,12 @@ export default function Landing() {
               <DailyCountdown />
             </div>
           </div>
-          <XPBar progress={progress} rank={rank} className="w-full sm:max-w-xs" />
+          <XPBar
+            progress={progress}
+            rank={rank}
+            tutorialXpPending={tutorialXpPending}
+            className="w-full sm:max-w-xs"
+          />
         </div>
 
         {user ? <WeeklyMissions /> : null}

@@ -318,6 +318,49 @@ export function useSudokuGame(opts: UseSudokuGameOptions = {}) {
         errors: mistakesFinal,
         hintsUsed: hintsUsedFinal,
       };
+
+      if (challengeMeta) {
+        const submitKey = `challenge-${challengeMeta.challengeId}-submitted`;
+        try {
+          if (typeof localStorage !== "undefined" && localStorage.getItem(submitKey) === "1") {
+            toast.message("Ya enviaste tu resultado para este desafío");
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
+        try {
+          const { data, error } = await supabase.functions.invoke<{
+            rank?: number;
+            total?: number;
+          }>("sudoku-submit-challenge", {
+            body: {
+              challenge_id: challengeMeta.challengeId,
+              time_ms: timerSeconds * 1000,
+              errors: mistakesFinal,
+              guest_name: challengeMeta.getGuestName(),
+            },
+          });
+          if (error) throw error;
+          if (data?.rank != null && data?.total != null) {
+            setChallengeFinish({ rank: data.rank, total: data.total });
+            toast.success(`Puesto #${data.rank} de ${data.total}`);
+          } else {
+            toast.success("Intento registrado");
+          }
+          try {
+            localStorage.setItem(submitKey, "1");
+          } catch {
+            /* ignore */
+          }
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "No se pudo enviar el intento");
+        }
+        return;
+      }
+
+      if (zen) return;
+
       if (!user) onWinRef.current?.(payload);
 
       if (speedMeta) {

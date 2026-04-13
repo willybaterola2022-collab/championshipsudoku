@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
 export default function Profile() {
   const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuth();
   const [streamerMode, setStreamerMode] = useState(false);
-  const { progress, rank, isServerProgress, sessionDifficultyError } = usePlayerProgress();
+  const { progress, rank, isServerProgress, sessionDifficultyError, tutorialXpPending } =
+    usePlayerProgress();
 
   const { data: unlockedKeys, isFetched: achievementsFetched } = useQuery({
     queryKey: ["sudoku-user-achievement-keys", user?.id],
@@ -153,7 +154,7 @@ export default function Profile() {
           </div>
         </div>
 
-        <XPBar progress={progress} rank={rank} className="max-w-md" />
+        <XPBar progress={progress} rank={rank} tutorialXpPending={tutorialXpPending} className="max-w-md" />
 
         <section className="glass rounded-xl border border-border p-4">
           <h2 className="mb-3 font-serif text-xl text-primary">Tu racha</h2>
