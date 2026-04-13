@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, LogOut, User } from "lucide-react";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ActivityCalendar } from "@/components/sudoku/ActivityCalendar";
 import { Navbar } from "@/components/Navbar";
-import { ProfileSessionChart } from "@/components/sudoku/ProfileSessionChart";
+const ProfileSessionChart = lazy(async () => {
+  const m = await import("@/components/sudoku/ProfileSessionChart");
+  return { default: m.ProfileSessionChart };
+});
 import { UnlockProgressSection } from "@/components/sudoku/UnlockProgressSection";
 import { StreakRewards } from "@/components/sudoku/StreakRewards";
 import { WeeklyMissions } from "@/components/sudoku/WeeklyMissions";
@@ -175,7 +178,16 @@ export default function Profile() {
 
         <ActivityCalendar userId={user.id} className="glass rounded-xl border border-border p-4" />
 
-        <ProfileSessionChart userId={user.id} className="glass rounded-xl border border-border p-4" />
+        <Suspense
+          fallback={
+            <div
+              className="glass h-64 animate-pulse rounded-xl border border-border p-4"
+              data-placeholder
+            />
+          }
+        >
+          <ProfileSessionChart userId={user.id} className="glass rounded-xl border border-border p-4" />
+        </Suspense>
 
         <div className="glass rounded-xl border border-border p-4">
           <h2 className="mb-3 font-serif text-xl text-primary">Progresión y desbloqueos</h2>

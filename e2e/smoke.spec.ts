@@ -71,4 +71,23 @@ test.describe("smoke", () => {
     await page.goto("/play?mode=zen");
     await expect(page.getByText(/sin tiempo/i).first()).toBeVisible({ timeout: 15_000 });
   });
+
+  test("ruta /daily carga puzzle del día", async ({ page }) => {
+    await page.goto("/daily");
+    await expect(page.getByRole("heading", { name: /puzzle del día/i })).toBeVisible({
+      timeout: 20_000,
+    });
+  });
+
+  test("ruta /play/killer carga", async ({ page }) => {
+    await page.goto("/play/killer");
+    await expect(page.getByRole("link", { name: /volver/i }).first()).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("ruta /challenge inválido muestra no encontrado", async ({ page }) => {
+    await page.goto("/challenge/no-existe-xyz");
+    await expect(page.getByText(/no encontrado|desafío no encontrado/i)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
 });

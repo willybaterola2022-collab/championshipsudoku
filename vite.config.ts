@@ -15,7 +15,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["favicon.svg", "og-image.svg"],
+      includeAssets: ["favicon.svg", "og-image.svg", "og-image.png"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp}"],
         runtimeCaching: [
@@ -63,6 +63,15 @@ export default defineConfig({
   ],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ["recharts"],
+        },
+      },
+    },
   },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
