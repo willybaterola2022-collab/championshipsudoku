@@ -37,9 +37,9 @@ for fn_dir in "$EF_DIR"/*/; do
     FAILED=1
   fi
 
-  # 3. No hardcoded secrets
-  if grep -qE "(sk-ant-|sk-proj-|AIza[0-9A-Za-z_-]{35})" "$index"; then
-    echo "    ❌ Looks like a hardcoded API key"
+  # 3. No hardcoded secrets (ampliado: ghp, resend, stripe, supabase JWT)
+  if grep -qE "(sk-ant-api03-|sk-proj-|AIza[0-9A-Za-z_-]{35}|ghp_[A-Za-z0-9]{30,}|re_[A-Za-z0-9_-]{20,}|rk_live_[A-Za-z0-9]{20,}|eyJhbGciOi.{100,})" "$index"; then
+    echo "    ❌ Looks like a hardcoded API key / JWT"
     FAILED=1
   fi
 
